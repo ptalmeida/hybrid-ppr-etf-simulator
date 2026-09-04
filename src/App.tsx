@@ -63,7 +63,9 @@ export default function App() {
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
-        <aside className="lg:sticky lg:top-6 lg:self-start">
+        {/* results first on mobile: a visitor should see the comparison
+            before a long form. Side by side from lg up. */}
+        <aside className="order-2 lg:order-1 lg:sticky lg:top-6 lg:self-start">
           <ConfigPanel
             config={config}
             onChange={update}
@@ -73,7 +75,7 @@ export default function App() {
           />
         </aside>
 
-        <main className="min-w-0 space-y-6">
+        <main className="order-1 min-w-0 space-y-6 lg:order-2">
           <SummaryCards scenarios={output.scenarios} />
 
           <RiskEquivalenceWarning />
