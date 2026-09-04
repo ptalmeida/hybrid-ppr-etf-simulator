@@ -116,23 +116,76 @@ interface ScenarioResult {
 
 ## Configuration (SimConfig)
 
+Everything below is user-editable. Nothing the engine uses is hardcoded.
+
 | Field | Default | Notes |
 |---|---|---|
-| `annualInvestment` | 2000 | € per year |
+| `currentAge` | 30 | drives the IRS band and, in `maxDeductible` mode, the contribution |
+| `contributionMode` | `'fixed'` | `'fixed'` \| `'maxDeductible'` |
+| `annualInvestment` | 2000 | € per year — used when `contributionMode === 'fixed'` |
 | `years` | 33 | simulation horizon |
 | `etfReturn` | 7.97 | % gross annual |
 | `pprReturn` | 5.70 | % gross annual |
 | `etfFee` | 0.10 | % annual TER |
-| `pprFee` | 1.20 | % annual management fee |
+| `pprFee` | 0.75 | % annual management fee |
+| `pprTrackingError` | 0 | % annual additional drag — see below |
+| `etfAnnualCost` | 0 | € fixed annual broker cost (custody, connectivity) |
 | `mortgageStartYear` | 3 | first year redemptions may occur |
 | `monthlyInstalment` | 500 | € — caps annual PPR redemption at 12× |
-| `reinvest` | true | reinvest IRS benefit + redemption proceeds into ETF |
+| `benefitDestination` | `'etf'` | `'etf'` \| `'ppr'` \| `'consumed'` |
+| `reinvestRedemption` | true | reinvest net mortgage-redemption proceeds into the ETF |
 | `etfTaxMode` | `'ladder'` | `'ladder'` \| `'flat28'` \| `'englobamento'` |
 | `marginalRate` | 35 | % — only used when `etfTaxMode === 'englobamento'` |
 | `use35Rule` | true | art. 4.º/3 full-balance eligibility vs per-entrega |
-| `irsBenefitCap` | 400 | € annual cap on the PPR IRS deduction |
+| `irsBandsEnabled` | true | age-band the IRS cap automatically |
+| `irsBenefitCap` | 400 | € — used when `irsBandsEnabled` is false |
 | `etfName` | "ETF S&P 500" | user-editable label, appears in cards/charts/legends |
 | `pprName` | "PPR" | user-editable label, appears in cards/charts/legends |
+
+### Age bands
+
+When `irsBandsEnabled` is true the annual deduction cap follows art. 21.º EBF
+from the participant's age in each simulated year:
+
+| Age in year `t` | Cap | Contribution in `maxDeductible` mode |
+|---|---|---|
+| under 35 | €400 | €2000 |
+| 35 to 50 | €350 | €1750 |
+| over 50 | €300 | €1500 |
+
+`maxDeductible` mode contributes exactly `cap / 0.20` each year — the largest
+contribution that is still fully matched by the 20% deduction. Contributing more
+than this earns no additional benefit, which is the point the mode exists to
+make. The three bands are editable constants in `tax.ts`, not literals scattered
+through the engine.
+
+### Fees and drag
+
+The PPR is charged `pprFee + pprTrackingError` per year; the ETF is charged
+`etfFee` per year plus `etfAnnualCost` in absolute euros.
+
+`pprTrackingError` exists because a PPR fund's realised return can lag its own
+stated benchmark by considerably more than its management fee — community
+analysis of one popular ETF-based PPR put the gap near 2.6%/year. It defaults to
+0 so the simulator does not editorialise, but it is surfaced in Advanced
+Settings with that explanation, because at plausible values it eliminates the
+entire tax advantage on its own.
+
+### Benefit destination
+
+The IRS deduction is real money received the following year. How it is treated
+changes the result by several multiples, so it is an explicit choice rather than
+a boolean:
+
+- `'etf'` (default) — injected as a new ETF tranche, compounding at the ETF rate.
+- `'ppr'` — added to next year's PPR contribution, so a €2000 contribution
+  effectively becomes €2400. This is the more aggressive reading and produces
+  markedly larger differences.
+- `'consumed'` — spent. Still counted in "benefits received" totals, never
+  compounded.
+
+The UI must state that these are modelling choices, not tax rules, and that the
+comparison is only fair if the same discipline is applied to every scenario.
 
 `etfName` and `pprName` are free text, trimmed, capped at 40 characters, and
 fall back to the defaults when empty. They are interpolated into scenario
@@ -234,57 +287,69 @@ cost of the mortgage never materialising.
 ### IRS benefit
 
 Each year a PPR contribution is made, the taxpayer receives
-`min(0.20 * contribution, irsBenefitCap)` as a deduction to collection.
+`min(0.20 * contribution, capForAge(t))` as a deduction to collection, where
+`capForAge` applies the age bands when `irsBandsEnabled`, or returns
+`irsBenefitCap` otherwise.
 
-The cap is editable (default €400) with a note that the statutory cap is age
-banded — €400 under 35, €350 from 35 to 50, €300 over 50 — and sits inside the
-global cap on collection deductions and the taxpayer's actual coleta.
+The UI notes that this cap sits inside the global cap on collection deductions
+and is limited by the taxpayer's actual coleta — neither of which is modelled.
 
 ## Scenario mechanics
 
-All three scenarios receive the same `annualInvestment` out of pocket each year,
-so they are directly comparable.
+All three scenarios receive the **same out-of-pocket contribution** each year,
+computed once from `contributionMode` and the participant's age, so they are
+directly comparable. Scenario 1 receives no IRS benefit because it makes no PPR
+contribution; that asymmetry is the whole point of the comparison.
 
-**Scenario 1 — ETF only.** Contribution goes to the ETF. No IRS benefit. Final
-liquidation taxed by the ETF rule.
+**Scenario 1 — ETF only.** Contribution goes to the ETF. No IRS benefit, no
+redemptions. Final liquidation taxed by the ETF rule.
 
-**Scenario 2 — Hybrid.** Contribution goes to the PPR. Then, if `reinvest`:
-- the IRS benefit for that year is added as a new ETF tranche in the same year;
-- when a PPR tranche is redeemed for the mortgage, the **net** proceeds
-  (principal + profit − 8% tax) are added as a new ETF tranche in that year,
-  because the household saved that amount of salary that would otherwise have
-  paid the mortgage.
+**Scenario 2 — Hybrid.** Contribution goes to the PPR. Then:
+- the IRS benefit for the year is routed per `benefitDestination`;
+- if `reinvestRedemption`, the **net** proceeds of any mortgage redemption
+  (principal + profit − 8% tax) are added as a new ETF tranche that year,
+  because the household saved that much salary that would otherwise have paid
+  the mortgage.
 
-If `reinvest` is false, both amounts are consumed and never compound. The
-scenario should then lose to Scenario 1, and the UI should say why.
+With `benefitDestination: 'consumed'` and `reinvestRedemption: false` nothing
+compounds and the scenario should lose to Scenario 1. The generated explanation
+must say so explicitly rather than leaving the user to notice.
 
 **Scenario 3 — PPR only.** Contribution goes to the PPR. The IRS benefit is
 received and mortgage redemptions still occur, but nothing is ever reinvested —
-both are consumed. This scenario never touches the ETF and ignores the
-`reinvest` toggle entirely. It is the "do nothing clever" baseline, and its
-purpose is to show that the PPR's tax advantages alone do not beat the ETF's
-higher return over a long horizon.
+both are consumed. This scenario ignores `benefitDestination` and
+`reinvestRedemption` entirely. It is the "do nothing clever" baseline: it shows
+that the PPR's tax advantages alone do not beat the ETF's higher return over a
+long horizon.
 
-The IRS benefit and mortgage payments are still tracked and reported for
-Scenario 3, because they are real value received even when not reinvested. Net
-value is therefore reported two ways in the summary card: portfolio-only, and
-portfolio plus cumulative benefits received. Charts use portfolio-only for
-series 1 and 5 so that all three scenarios are compared on the same basis.
+### Reporting benefits consistently
+
+The IRS benefit and mortgage payments are real value received even when not
+reinvested, so every scenario reports net value two ways in its summary card:
+**portfolio only**, and **portfolio plus cumulative benefits received**. Charts
+use portfolio-only so all three scenarios sit on one basis, with the second
+figure available in tooltips.
+
+This is exactly the distinction that makes published comparisons of these two
+strategies disagree with each other by several multiples, so the app shows both
+rather than picking one.
 
 ## Yearly loop
 
 For `t = 1..years`, for each scenario:
 
-1. Grow every existing tranche by its product's net rate
-   (`return - fee`, as a percentage).
-2. Add this year's contribution as a new tranche of the scenario's primary
-   product.
-3. If the scenario has a PPR: compute and record the IRS benefit; inject into
-   the ETF if the scenario reinvests.
+1. Grow every existing tranche by its product's net rate: ETF at
+   `etfReturn - etfFee`, PPR at `pprReturn - pprFee - pprTrackingError`. Then
+   subtract `etfAnnualCost` from the ETF balance, pro-rata across tranches.
+2. Compute this year's contribution from `contributionMode` and the age in year
+   `t`, and add it as a new tranche of the scenario's primary product.
+3. If the scenario has a PPR: compute and record the IRS benefit, then route it
+   per `benefitDestination` (new ETF tranche, added to next year's PPR
+   contribution, or consumed).
 4. If `t >= mortgageStartYear`: determine eligible PPR tranches per the
    `use35Rule` regime, redeem oldest-first up to `12 * monthlyInstalment`,
-   paying 8% on the profit portion of each redeemed amount; inject net proceeds
-   into the ETF if the scenario reinvests.
+   paying 8% on the profit portion of each redeemed amount; add net proceeds as
+   a new ETF tranche if `reinvestRedemption`.
 5. Record a `YearRow`, where `netIfLiquidatedNow` liquidates all remaining
    tranches under current rules.
 
@@ -346,17 +411,78 @@ Vitest on `lib/`. Coverage targets the maths, not the UI:
 - redemption never exceeds the PPR balance, and the balance never goes negative
 - PPR tax is 8% of profit only — a tranche with zero profit is taxed zero
 - IRS benefit cap: contribution below and above the 20%/€400 crossover (€2000)
-- `reinvest: false` produces a hybrid result strictly worse than Scenario 1
+- `benefitDestination: 'consumed'` with `reinvestRedemption: false` produces a
+  hybrid result strictly worse than Scenario 1
 - conservation: total contributed + all growth − all tax = final net value
 - zero-year and zero-contribution edge cases do not throw
 - URL round-trip: `parse(serialise(config))` equals `config`, and a mangled
   query string yields defaults rather than throwing
+- age bands: contribution and cap step correctly at ages 35 and 50 mid-horizon
+- all three `benefitDestination` values, asserting `'ppr'` > `'etf'` >
+  `'consumed'` in final value when the PPR return exceeds the ETF return, and
+  the reverse when it does not
+- `pprTrackingError` at 2.6% erases the hybrid advantage
+
+### Regression fixture
+
+A published community comparison (`r/literaciafinanceira`, "Golden SGF PPR ETF
+vs investimento direto em ETF") provides an independent set of numbers. Its
+setup: start at age 30, 30 years, 6% net ETF return, PPR return 6% − 0.75%
+management fee, contributions of €2000/€1750/€1500 by age band.
+
+| | Their figure |
+|---|---|
+| ETF final portfolio | €149,571.35 |
+| ETF gains | €98,321.35 |
+| ETF net after tax | €130,300.36 |
+| PPR final portfolio | €129,660.60 |
+| PPR gains | €78,410.60 |
+| PPR net after 8% | €123,387.75 |
+| IRS benefits received | €10,250.00 |
+| Total contributed | €51,250.00 |
+
+The engine must reproduce total contributed (€51,250 = 5×2000 + 15×1750 +
+10×1500), the benefits total (€10,250 = 5×400 + 15×350 + 10×300), both gross
+portfolio values, and the PPR net figure.
+
+It must **not** reproduce their ETF net figure. They applied 19.6% to the entire
+gain, but under FIFO the final years' tranches are younger than 8 years and are
+taxed at 22.4%, 25.2% and 28%. Our result should therefore be slightly **below**
+€130,300.36. The test asserts that direction explicitly, with a comment
+explaining why we diverge — this is a correctness check on our FIFO
+implementation, not a discrepancy to fix.
+
+## The risk-equivalence warning
+
+This is the most important caveat in the app and gets a permanent, non-dismissable
+callout next to the return inputs — not a footnote.
+
+Comparing a 100% equity S&P 500 ETF against a PPR is **not a like-for-like
+comparison**. Portuguese PPR funds are typically mixed portfolios: one popular
+ETF-based PPR sits at roughly 75% equities, 22.5% bonds and 2.5% money market.
+A lower expected return is the *consequence* of lower risk, not a defect.
+
+The simulator cannot tell whether the two return figures entered represent
+comparable risk. It compares whatever the user types. The callout says so and
+suggests either entering returns for genuinely comparable allocations, or
+setting both returns equal to isolate the pure tax effect — which is what the
+app is actually good at showing.
+
+The app also names the things it cannot price:
+
+- **Liquidity.** A PPR cannot be redeemed for an unforeseen need without the
+  21.5% penalty and benefit clawback. An ETF can be sold any day.
+- **Optionality.** ETF holdings can be rebalanced, harvested, or exited ahead of
+  an expected drawdown. PPR holdings cannot.
+- **Concentration.** The PPR ties both the retirement plan and the mortgage
+  strategy to one provider.
 
 ## Known simplifications
 
 Stated in the UI, not just here:
 
-1. Deterministic constant returns. Real markets are not.
+1. Deterministic constant returns. Real markets are not, and sequence-of-returns
+   risk is invisible in a model like this.
 2. No inflation; all figures are nominal.
 3. The IRS benefit cap is not age-banded automatically and ignores the global
    cap on collection deductions and the taxpayer's available coleta.
@@ -378,9 +504,18 @@ Stated in the UI, not just here:
 
 ## Sources
 
-Consulted 2026-09-04. The Reddit thread the user referenced
-(`r/literaciafinanceira`) could not be retrieved — reddit.com blocks the crawler
-and mirrors are behind bot protection.
+Consulted 2026-09-04.
+
+The Reddit thread the user referenced — `r/literaciafinanceira`, "Golden SGF PPR
+ETF vs investimento direto em ETF" by u/preladapt, ~2 years old, 21 upvotes, 28
+comments — could not be fetched (reddit.com blocks the crawler and the mirrors
+are behind bot protection). The user supplied it as screenshots. It contributed
+the age-banded contribution schedule, the regression fixture above, the two
+rival treatments of the IRS benefit, and three points from commenters: the
+75/22.5/2.5 allocation of that PPR (u/freewebcoins), its 0.75% management fee
+(u/freewebcoins), a reported ~2.6%/year tracking error against benchmark
+(u/tdstdstds), and the liquidity/optionality cost of locking money in a PPR
+(u/JRJordao).
 
 - [Artigo 21.º EBF — Portal das Finanças](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/bf_rep/Pages/ebf-artigo-21-ordm-.aspx) — deduction bands, 2/5 at 20%, clawback with 10%/year majoração
 - [Artigo 43.º CIRS — Portal das Finanças](https://info.portaldasfinancas.gov.pt/pt/informacao_fiscal/codigos_tributarios/cirs_rep/Pages/irs43.aspx) — holding-period exclusions
