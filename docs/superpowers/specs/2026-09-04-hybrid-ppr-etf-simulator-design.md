@@ -23,7 +23,8 @@ The app is educational. It is not financial advice and must say so.
 - No inflation modelling, no salary modelling, no mortgage amortisation schedule.
   The mortgage is represented solely by a start year and a monthly instalment,
   because that is all the tax rules need.
-- No englobamento marginal-rate modelling. See "Known simplifications".
+- No progressive IRS bracket modelling. Englobamento is modelled as a single
+  user-supplied marginal rate, not derived from income.
 
 ## Stack
 
@@ -87,30 +88,49 @@ therefore structural: redemptions and liquidations walk the array from index 0.
 ```ts
 interface YearRow {
   year: number;
+  age: number;              // participant's age in this year
   etfBalance: number;
   pprBalance: number;
+  contributedThisYear: number;
   contributed: number;      // cumulative € out of pocket
+  redeemedThisYear: number; // € gross redeemed from the PPR this year
   mortgagePaid: number;     // cumulative € of mortgage covered by PPR
+  irsBenefitThisYear: number;
   irsBenefit: number;       // cumulative € of IRS deductions received
   taxPaidToDate: number;    // cumulative € of tax actually paid (PPR redemptions)
-  netIfLiquidatedNow: number;
+  netIfLiquidatedNow: number;        // portfolio only, after liquidation tax
+  netWithBenefits: number;           // the above + cumulative benefits received
+}
+
+interface BracketSlice {
+  bracket: string;          // e.g. '>= 8 anos'
+  ratePct: number;          // effective rate applied
+  gain: number;
+  tax: number;
 }
 
 interface ScenarioResult {
   id: 'etf' | 'hybrid' | 'ppr';
-  label: string;            // user-editable product names feed into this
+  label: string;            // built from the user-editable product names
   rows: YearRow[];
   final: {
-    grossValue: number;
+    grossValue: number;              // portfolio before liquidation tax
     etfTax: number;
-    pprTax: number;
+    pprTax: number;                  // liquidation only
+    pprTaxDuringRedemptions: number; // 8% paid along the way
     irsBenefitTotal: number;
     mortgagePaidTotal: number;
-    netValue: number;
+    netValue: number;                // portfolio only
+    netWithBenefits: number;
     totalContributed: number;
-    effectiveTaxRate: number;
-    bracketBreakdown: { bracket: string; gain: number; tax: number }[];
+    effectiveTaxRate: number;        // total tax / total gain
+    bracketBreakdown: BracketSlice[];
   };
+}
+
+interface SimOutput {
+  scenarios: ScenarioResult[];       // always [etf, hybrid, ppr]
+  breakEvenYear: number | null;      // first year hybrid net >= etf net
 }
 ```
 
