@@ -266,15 +266,66 @@ describe('simulate — benefit destination', () => {
     expect(intoPpr.rows.at(-1)!.etfBalance).toBe(0);
   });
 
-  it('counts consumed benefits in netWithBenefits but not in netValue', () => {
+  it('counts consumed benefits and consumed redemptions once, in hand', () => {
     const s = byId(
-      simulate(cfg({ years: 20, benefitDestination: 'consumed' })),
+      simulate(
+        cfg({
+          years: 20,
+          mortgageStartYear: 6,
+          benefitDestination: 'consumed',
+          reinvestRedemption: false,
+        }),
+      ),
       'hybrid',
     );
     expect(s.final.netWithBenefits).toBeCloseTo(
       s.final.netValue + s.final.mortgagePaidTotal + s.final.irsBenefitTotal,
       6,
     );
+  });
+
+  it('does NOT add reinvested value again — the portfolio already holds it', () => {
+    // The classic double count: when the redemption proceeds are reinvested,
+    // the freed salary is already inside the ETF balance, so adding
+    // mortgagePaidTotal on top would inflate the result by that amount twice.
+    const s = byId(
+      simulate(
+        cfg({
+          years: 20,
+          mortgageStartYear: 6,
+          benefitDestination: 'etf',
+          reinvestRedemption: true,
+        }),
+      ),
+      'hybrid',
+    );
+    expect(s.final.mortgagePaidTotal).toBeGreaterThan(0);
+    expect(s.final.irsBenefitTotal).toBeGreaterThan(0);
+    expect(s.final.netWithBenefits).toBeCloseTo(s.final.netValue, 6);
+  });
+
+  it('adds only the channel that was actually consumed', () => {
+    // benefit reinvested, redemption consumed => only the mortgage counts
+    const s = byId(
+      simulate(
+        cfg({
+          years: 20,
+          mortgageStartYear: 6,
+          benefitDestination: 'etf',
+          reinvestRedemption: false,
+        }),
+      ),
+      'hybrid',
+    );
+    expect(s.final.netWithBenefits).toBeCloseTo(
+      s.final.netValue + s.final.mortgagePaidTotal,
+      6,
+    );
+  });
+
+  it('leaves the ETF scenario unaffected — it has no other channel', () => {
+    const s = byId(simulate(cfg({ years: 20 })), 'etf');
+    expect(s.final.netWithBenefits).toBeCloseTo(s.final.netValue, 6);
   });
 
   it('loses to the pure ETF scenario when nothing is reinvested', () => {
@@ -333,11 +384,51 @@ describe('simulate — invariants', () => {
     expect(sum).toBeCloseTo(s.final.etfTax, 6);
   });
 
-  it('finds a break-even year when the hybrid eventually wins', () => {
-    const out = simulate(
-      cfg({ years: 40, pprReturn: 7.97, pprFee: 0, mortgageStartYear: 6 }),
+  it('reports no break-even when the hybrid leads from the very first year', () => {
+    // The hybrid banks the IRS deduction in year 1, so it is normally ahead
+    // immediately. There is no crossover, and calling year 1 a break-even
+    // would be meaningless.
+    const out = simulate(cfg());
+    const hybrid = byId(out, 'hybrid');
+    const etf = byId(out, 'etf');
+    expect(hybrid.rows[0].netWithBenefits).toBeGreaterThanOrEqual(
+      etf.rows[0].netWithBenefits,
     );
-    expect(out.breakEvenYear).not.toBeNull();
+    expect(out.breakEvenYear).toBeNull();
+  });
+
+  it('finds the year from which the hybrid is ahead for good', () => {
+    // A large broker cost drags the ETF-heavy hybrid down early, so it starts
+    // behind and only overtakes later.
+    const out = simulate(
+      cfg({
+        years: 40,
+        pprReturn: 7.97,
+        pprFee: 0,
+        mortgageStartYear: 6,
+        etfAnnualCost: 300,
+      }),
+    );
+    const hybrid = byId(out, 'hybrid');
+    const etf = byId(out, 'etf');
+
+    if (hybrid.rows[0].netWithBenefits < etf.rows[0].netWithBenefits) {
+      expect(out.breakEvenYear).not.toBeNull();
+      const i = out.breakEvenYear! - 1;
+      // ahead at the break-even year, and behind the year before
+      expect(hybrid.rows[i].netWithBenefits).toBeGreaterThanOrEqual(
+        etf.rows[i].netWithBenefits,
+      );
+      expect(hybrid.rows[i - 1].netWithBenefits).toBeLessThan(
+        etf.rows[i - 1].netWithBenefits,
+      );
+      // and never falls behind again
+      for (let k = i; k < hybrid.rows.length; k++) {
+        expect(hybrid.rows[k].netWithBenefits).toBeGreaterThanOrEqual(
+          etf.rows[k].netWithBenefits,
+        );
+      }
+    }
   });
 
   it('reports a null break-even year when the hybrid never wins', () => {

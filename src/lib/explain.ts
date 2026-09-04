@@ -88,14 +88,15 @@ export function buildExplanation(
     });
   }
 
-  const delta = hybrid.final.netValue - etf.final.netValue;
+  const delta = hybrid.final.netWithBenefits - etf.final.netWithBenefits;
+  const crossover =
+    out.breakEvenYear !== null
+      ? `, passando à frente no ano ${out.breakEvenYear}`
+      : ', e esteve à frente desde o primeiro ano, porque a dedução do IRS entra logo';
   const verdict =
     delta >= 0
       ? `a estratégia híbrida termina ${formatEur(delta)} acima do investimento ` +
-        `direto no ${cfg.etfName}` +
-        (out.breakEvenYear !== null
-          ? `, ultrapassando-o no ano ${out.breakEvenYear}`
-          : '')
+        `direto no ${cfg.etfName}${crossover}`
       : `a estratégia híbrida termina ${formatEur(Math.abs(delta))} abaixo do ` +
         `investimento direto no ${cfg.etfName}`;
 

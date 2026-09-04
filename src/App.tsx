@@ -1,122 +1,147 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useMemo, useState } from 'react';
+import { LineChart } from 'lucide-react';
+import { useUrlConfig } from './hooks/useUrlConfig';
+import { simulate } from './lib/engine';
+import { buildExplanation } from './lib/explain';
+import { ConfigPanel } from './components/ConfigPanel';
+import { SummaryCards } from './components/SummaryCards';
+import { Explanation } from './components/Explanation';
+import { Card } from './components/Card';
+import {
+  Disclaimer,
+  RiskEquivalenceWarning,
+  WhatThisCannotPrice,
+} from './components/Callouts';
+import { WealthChart } from './components/charts/WealthChart';
+import { CompositionChart } from './components/charts/CompositionChart';
+import { TaxWaterfall } from './components/charts/TaxWaterfall';
+import { BracketBar } from './components/charts/BracketBar';
+import { DeltaChart } from './components/charts/DeltaChart';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const { config, update, reset } = useUrlConfig();
+  const [copied, setCopied] = useState(false);
+
+  const output = useMemo(() => simulate(config), [config]);
+  const explanation = useMemo(
+    () => buildExplanation(config, output),
+    [config, output],
+  );
+
+  const etf = output.scenarios.find((s) => s.id === 'etf')!;
+  const hybrid = output.scenarios.find((s) => s.id === 'hybrid')!;
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">
+      <header className="mb-8 max-w-3xl">
+        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+          <LineChart size={20} />
+          <span className="text-sm font-semibold tracking-wide uppercase">
+            Simulador
+          </span>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl dark:text-slate-50">
+          PPR + crédito habitação vs. ETF
+        </h1>
+        <p className="mt-3 text-base leading-relaxed text-slate-600 dark:text-slate-400">
+          Compara três estratégias de longo prazo para quem vive em Portugal e
+          conta ter crédito habitação: investir só num ETF, investir só num PPR,
+          ou a estratégia híbrida — usar o PPR para captar o benefício de IRS,
+          resgatá-lo a 8% para pagar as prestações, e reinvestir no ETF tudo o
+          que isso liberta.
+        </p>
+      </header>
 
-      <div className="ticks"></div>
+      <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+        <aside className="lg:sticky lg:top-6 lg:self-start">
+          <ConfigPanel
+            config={config}
+            onChange={update}
+            onReset={reset}
+            onCopyLink={copyLink}
+            copied={copied}
+          />
+        </aside>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        <main className="min-w-0 space-y-6">
+          <SummaryCards scenarios={output.scenarios} />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+          <RiskEquivalenceWarning />
+
+          <Card
+            title="Evolução do património"
+            subtitle="Valor total criado por cada estratégia — carteira líquida de imposto, mais as prestações pagas e os benefícios recebidos que não foram reinvestidos."
+          >
+            <WealthChart
+              scenarios={output.scenarios}
+              mortgageStartYear={config.mortgageStartYear}
+            />
+          </Card>
+
+          <div className="grid gap-6 xl:grid-cols-2">
+            <Card
+              title="Composição da estratégia híbrida"
+              subtitle="O capital a migrar do PPR para o ETF, e as prestações já pagas."
+            >
+              <CompositionChart hybrid={hybrid} config={config} />
+            </Card>
+
+            <Card
+              title="Diferença acumulada"
+              subtitle={`${hybrid.label} menos ${etf.label}, ano a ano.`}
+            >
+              <DeltaChart
+                etf={etf}
+                hybrid={hybrid}
+                breakEvenYear={output.breakEvenYear}
+              />
+            </Card>
+          </div>
+
+          <Card
+            title="Impacto fiscal"
+            subtitle="Da carteira bruta ao valor final, passo a passo."
+          >
+            <div className="grid gap-8 xl:grid-cols-2">
+              {[etf, hybrid].map((s) => (
+                <div key={s.id}>
+                  <h3 className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                    {s.label}
+                  </h3>
+                  <TaxWaterfall scenario={s} />
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card
+            title="Escalões de tributação do ETF"
+            subtitle={`Onde caem as mais-valias do ${config.etfName} na estratégia híbrida, por antiguidade de cada entrada (FIFO).`}
+          >
+            <BracketBar slices={hybrid.final.bracketBreakdown} />
+          </Card>
+
+          <Card
+            title="Como funciona, passo a passo"
+            subtitle="Gerado a partir da configuração atual."
+          >
+            <Explanation steps={explanation} />
+          </Card>
+
+          <WhatThisCannotPrice />
+          <Disclaimer />
+        </main>
+      </div>
+    </div>
+  );
 }
-
-export default App

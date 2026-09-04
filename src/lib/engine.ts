@@ -64,6 +64,34 @@ function firstHalfShare(entregas: { year: number; amount: number }[]): number {
   return inFirstHalf / total;
 }
 
+/**
+ * Value the household received that is NOT already inside the portfolio.
+ *
+ * The three scenarios are only comparable on total value created, because they
+ * deliver it through different channels: the ETF scenario puts everything in
+ * the portfolio, while the PPR scenarios divert part of it into paying the
+ * mortgage and receiving IRS refunds.
+ *
+ * Each channel counts exactly once. When a benefit or a redemption is
+ * reinvested, its value is already in the portfolio and must NOT be added
+ * again — that double counting is the easiest mistake to make here.
+ */
+function valueInHand(
+  policy: Policy,
+  cfg: SimConfig,
+  benefitTotal: number,
+  mortgagePaid: number,
+): number {
+  const benefitReinvested =
+    policy.reinvests && cfg.benefitDestination !== 'consumed';
+  const redemptionReinvested = policy.reinvests && cfg.reinvestRedemption;
+
+  return (
+    (benefitReinvested ? 0 : benefitTotal) +
+    (redemptionReinvested ? 0 : mortgagePaid)
+  );
+}
+
 function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
   const etfNetRate = cfg.etfReturn - cfg.etfFee;
   const pprNetRate = cfg.pprReturn - cfg.pprFee - cfg.pprTrackingError;
@@ -176,11 +204,6 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       marginalRate: cfg.marginalRate,
     });
 
-    const benefitsStillInHand =
-      cfg.benefitDestination === 'consumed' || !policy.reinvests
-        ? benefitTotal
-        : 0;
-
     rows.push({
       year,
       age,
@@ -194,7 +217,8 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       irsBenefit: benefitTotal,
       taxPaidToDate: taxPaid,
       netIfLiquidatedNow: snapshot.net,
-      netWithBenefits: snapshot.net + mortgagePaid + benefitsStillInHand,
+      netWithBenefits:
+        snapshot.net + valueInHand(policy, cfg, benefitTotal, mortgagePaid),
     });
   }
 
@@ -205,11 +229,6 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
 
   const totalTax = final.etfTax + final.pprTax + taxPaid;
   const totalGain = final.gross + mortgagePaid - contributed;
-
-  const benefitsNotAlreadyInvested =
-    cfg.benefitDestination === 'consumed' || !policy.reinvests
-      ? benefitTotal
-      : 0;
 
   return {
     id: policy.id,
@@ -223,7 +242,8 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       irsBenefitTotal: benefitTotal,
       mortgagePaidTotal: mortgagePaid,
       netValue: final.net,
-      netWithBenefits: final.net + mortgagePaid + benefitsNotAlreadyInvested,
+      netWithBenefits:
+        final.net + valueInHand(policy, cfg, benefitTotal, mortgagePaid),
       totalContributed: contributed,
       effectiveTaxRate: totalGain > 0 ? Math.min(1, totalTax / totalGain) : 0,
       bracketBreakdown: final.bracketBreakdown,
@@ -242,17 +262,33 @@ export function simulate(cfg: SimConfig): SimOutput {
   const etf = scenarios.find((s) => s.id === 'etf')!;
   const hybrid = scenarios.find((s) => s.id === 'hybrid')!;
 
-  let breakEvenYear: number | null = null;
-  for (let i = 0; i < hybrid.rows.length; i++) {
-    if (hybrid.rows[i].netIfLiquidatedNow >= etf.rows[i].netIfLiquidatedNow) {
-      breakEvenYear = hybrid.rows[i].year;
-      break;
-    }
-  }
-  // a hybrid that leads early but is overtaken later never really broke even
-  if (breakEvenYear !== null && hybrid.final.netValue < etf.final.netValue) {
-    breakEvenYear = null;
-  }
+  return { scenarios, breakEvenYear: findBreakEven(hybrid, etf) };
+}
 
-  return { scenarios, breakEvenYear };
+/**
+ * The year from which the hybrid is ahead and never falls behind again.
+ *
+ * Returns null when there is no crossover to report — either because the
+ * hybrid was already ahead in year 1 (it banks the IRS deduction immediately,
+ * so it usually is) or because it never gets ahead. Calling year 1 a
+ * "break-even" would be meaningless, which is the whole point of this
+ * function existing rather than a plain first-match loop.
+ *
+ * Compared on total value created, the only basis on which scenarios that
+ * deliver value through different channels are comparable.
+ */
+function findBreakEven(
+  hybrid: ScenarioResult,
+  etf: ScenarioResult,
+): number | null {
+  const ahead = hybrid.rows.map(
+    (r, i) => r.netWithBenefits >= etf.rows[i].netWithBenefits,
+  );
+
+  if (ahead.length === 0 || ahead[0] || !ahead[ahead.length - 1]) return null;
+
+  for (let i = 0; i < ahead.length; i++) {
+    if (ahead.slice(i).every(Boolean)) return hybrid.rows[i].year;
+  }
+  return null;
 }
