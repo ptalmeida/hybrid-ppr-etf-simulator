@@ -162,9 +162,12 @@ describe('scalarFeeRules', () => {
 
   it('turns the defaults into the expected annual drag', () => {
     const rules = scalarFeeRules(DEFAULT_CONFIG);
-    expect(
-      annualRatePct(rules, ctx({ product: 'ppr' })),
-    ).toBeCloseTo(DEFAULT_CONFIG.pprFee + DEFAULT_CONFIG.pprDepositaryFee, 10);
+    expect(annualRatePct(rules, ctx({ product: 'ppr' }))).toBeCloseTo(
+      DEFAULT_CONFIG.pprFee +
+        DEFAULT_CONFIG.pprDepositaryFee +
+        DEFAULT_CONFIG.pprUnderlyingFee,
+      10,
+    );
     expect(annualRatePct(rules, ctx({ product: 'etf' }))).toBeCloseTo(
       DEFAULT_CONFIG.etfFee,
       10,
@@ -186,14 +189,19 @@ describe('scalarFeeRules', () => {
 });
 
 describe('simulate — irregular fees end to end', () => {
-  const flat = {
+  // the default config now carries the Golden preset's tiered fee, so every
+  // test here clears it and states the charges it wants
+  const flat: Partial<SimConfig> = {
+    extraFees: [],
+    pprSubscriptionFee: 0,
     pprFee: 0,
     pprDepositaryFee: 0,
     pprUnderlyingFee: 0,
+    pprRedemptionFee: 0,
     etfFee: 0,
     years: 20,
     mortgageStartYear: 999,
-  } as const;
+  };
 
   it('switches management fee band as the balance grows', () => {
     const tiered = simulate(
@@ -328,12 +336,23 @@ describe('simulate — irregular fees end to end', () => {
     }
   });
 
-  it('leaves results identical when extraFees is empty', () => {
-    const a = simulate(cfg({ years: 25 }));
-    const b = simulate(cfg({ years: 25, extraFees: [] }));
+  it('treats an absent extraFees the same as an empty one', () => {
+    const base = cfg({ ...flat, years: 25 });
+    const { extraFees: _drop, ...withoutKey } = base;
+    const a = simulate({ ...(withoutKey as SimConfig) });
+    const b = simulate({ ...base, extraFees: [] });
     expect(b.scenarios[1].final.netWithBenefits).toBeCloseTo(
       a.scenarios[1].final.netWithBenefits,
       10,
     );
+  });
+
+  it('makes the tiered default cost more than a flat 0.75%', () => {
+    // the shipped default pays 1% until the plan passes 10 000 EUR
+    const tiered = simulate(cfg({ years: 25 }));
+    const flatLow = simulate(cfg({ years: 25, extraFees: [], pprFee: 0.75 }));
+    const v = (o: ReturnType<typeof simulate>) =>
+      o.scenarios.find((s) => s.id === 'hybrid')!.final.feesPaid;
+    expect(v(tiered)).toBeGreaterThan(v(flatLow));
   });
 });

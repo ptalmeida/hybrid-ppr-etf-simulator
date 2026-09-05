@@ -172,6 +172,7 @@ describe('simulate — the reference case from the community thread', () => {
     pprUnderlyingFee: 0,
     pprRedemptionFee: 0,
     pprTrackingError: 0,
+    extraFees: [],
     etfCustodyFee: 0,
     etfBuyFee: 0,
     etfBuyFeeFixed: 0,
@@ -942,7 +943,8 @@ describe('simulate — the full fee schedule', () => {
   // A PPR stacks several charges at once. Golden SGF, for example: 0%
   // subscription, 0.75-1% management, up to 0.08% depositary, 0.09-0.6% for
   // the ETFs it holds, and up to 1% redemption on units under a year old.
-  const noFees = {
+  const noFees: Partial<SimConfig> = {
+    extraFees: [],
     pprSubscriptionFee: 0,
     pprFee: 0,
     pprDepositaryFee: 0,
@@ -955,7 +957,7 @@ describe('simulate — the full fee schedule', () => {
     etfBuyFeeFixed: 0,
     etfSellFee: 0,
     etfAnnualCost: 0,
-  } as const;
+  };
 
   it('charges nothing when every fee is zero', () => {
     for (const s of simulate(cfg({ ...noFees, years: 20 })).scenarios) {

@@ -1,4 +1,13 @@
 import { Link2, RotateCcw } from 'lucide-react';
+import { PresetPicker } from './PresetPicker';
+import {
+  ETF_PRESETS,
+  PPR_PRESETS,
+  applyEtfPreset,
+  applyPprPreset,
+  matchEtfPreset,
+  matchPprPreset,
+} from '../lib/presets';
 import { NumberField, SelectField, TextField, ToggleField } from './Field';
 import { AdvancedSettings } from './AdvancedSettings';
 import { Card } from './Card';
@@ -41,22 +50,51 @@ export function ConfigPanel({
 
   return (
     <div className="space-y-4">
-      <Card title="Os seus produtos">
-        <div className="space-y-4">
-          <TextField
-            id="etfName"
-            label="Nome do ETF"
-            maxLength={MAX_NAME_LENGTH}
-            value={config.etfName}
-            onChange={(etfName) => onChange({ etfName })}
+      <Card
+        title="Os seus produtos"
+        subtitle="Escolha produtos reais e as comissões são preenchidas por si."
+      >
+        <div className="space-y-5">
+          <PresetPicker
+            id="etfPreset"
+            label="ETF"
+            presets={ETF_PRESETS}
+            selected={matchEtfPreset(config)}
+            currentReturn={config.etfReturn}
+            onSelect={(p) => onChange(applyEtfPreset(p))}
+            onUseHistory={(etfReturn) => onChange({ etfReturn })}
           />
-          <TextField
-            id="pprName"
-            label="Nome do PPR"
-            maxLength={MAX_NAME_LENGTH}
-            value={config.pprName}
-            onChange={(pprName) => onChange({ pprName })}
+          <PresetPicker
+            id="pprPreset"
+            label="PPR"
+            presets={PPR_PRESETS}
+            selected={matchPprPreset(config)}
+            currentReturn={config.pprReturn}
+            onSelect={(p) => onChange(applyPprPreset(p))}
+            onUseHistory={(pprReturn) => onChange({ pprReturn })}
           />
+
+          <details className="text-sm">
+            <summary className="cursor-pointer text-slate-600 dark:text-slate-400">
+              Usar nomes próprios
+            </summary>
+            <div className="mt-3 space-y-4">
+              <TextField
+                id="etfName"
+                label="Nome do ETF"
+                maxLength={MAX_NAME_LENGTH}
+                value={config.etfName}
+                onChange={(etfName) => onChange({ etfName })}
+              />
+              <TextField
+                id="pprName"
+                label="Nome do PPR"
+                maxLength={MAX_NAME_LENGTH}
+                value={config.pprName}
+                onChange={(pprName) => onChange({ pprName })}
+              />
+            </div>
+          </details>
         </div>
       </Card>
 

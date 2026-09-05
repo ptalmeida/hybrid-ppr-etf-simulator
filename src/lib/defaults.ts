@@ -8,14 +8,32 @@ export const DEFAULT_CONFIG: SimConfig = {
   years: 33,
   etfReturn: 7.97,
   pprReturn: 5.7,
+  // defaults to the Golden SGF PPR ETF preset — see lib/presets.ts
   pprSubscriptionFee: 0,
-  pprFee: 0.75,
+  pprFee: 0,
   pprDepositaryFee: 0.08,
-  pprUnderlyingFee: 0,
-  pprRedemptionFee: 0,
+  pprUnderlyingFee: 0.35,
+  pprRedemptionFee: 1,
   pprRedemptionFeeYears: 1,
+  extraFees: [
+    {
+      label: 'Gestão — Classe Start (abaixo de 10 000 €)',
+      product: 'ppr',
+      basis: 'annual',
+      pct: 1,
+      maxBalance: 10000,
+    },
+    {
+      label: 'Gestão — Classe Plus (10 000 € ou mais)',
+      product: 'ppr',
+      basis: 'annual',
+      pct: 0.75,
+      minBalance: 10000,
+    },
+  ],
   pprTrackingError: 0,
-  etfFee: 0.1,
+  // defaults to the VWCE preset
+  etfFee: 0.14,
   etfCustodyFee: 0,
   etfBuyFee: 0,
   etfBuyFeeFixed: 0,
@@ -34,8 +52,8 @@ export const DEFAULT_CONFIG: SimConfig = {
   irsBandsEnabled: true,
   irsBenefitCap: 400,
   logScale: false,
-  etfName: 'ETF S&P 500',
-  pprName: 'PPR',
+  etfName: 'VWCE',
+  pprName: 'Golden SGF PPR ETF',
 };
 
 /** Inclusive [min, max] bounds for every numeric field. Used by url.ts and the UI. */

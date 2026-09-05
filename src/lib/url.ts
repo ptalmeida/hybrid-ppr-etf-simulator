@@ -7,6 +7,7 @@ import type {
   SimConfig,
 } from './types';
 import { BOUNDS, DEFAULT_CONFIG, MAX_NAME_LENGTH } from './defaults';
+import type { FeeRule } from './fees';
 
 /**
  * Short, stable query keys. Never rename one: an old shared link must keep
@@ -73,6 +74,31 @@ function cleanName(raw: string, fallback: string): string {
   return trimmed.length > 0 ? trimmed : fallback;
 }
 
+/**
+ * Irregular fee rules ride along as compact base64url JSON.
+ *
+ * They cannot be expressed as a scalar query parameter, and dropping them
+ * would make a shared link compute a different answer from the page that
+ * produced it — the one thing a shareable simulator must never do.
+ */
+function encodeFees(rules: FeeRule[]): string {
+  const json = JSON.stringify(rules);
+  return btoa(unescape(encodeURIComponent(json)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+function decodeFees(raw: string): FeeRule[] | undefined {
+  try {
+    const b64 = raw.replace(/-/g, '+').replace(/_/g, '/');
+    const parsed = JSON.parse(decodeURIComponent(escape(atob(b64))));
+    return Array.isArray(parsed) ? (parsed as FeeRule[]) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Serialise only what differs from the defaults, so links stay readable. */
 export function serialiseConfig(cfg: SimConfig): string {
   const params = new URLSearchParams();
@@ -83,6 +109,10 @@ export function serialiseConfig(cfg: SimConfig): string {
       KEYS[field],
       typeof value === 'boolean' ? (value ? '1' : '0') : String(value),
     );
+  }
+  const fees = cfg.extraFees ?? [];
+  if (JSON.stringify(fees) !== JSON.stringify(DEFAULT_CONFIG.extraFees ?? [])) {
+    params.set('xf', encodeFees(fees));
   }
   return params.toString();
 }
@@ -109,6 +139,13 @@ export function parseConfig(query: string): SimConfig {
     const fallback = DEFAULT_CONFIG[field] as number;
     return raw === null ? fallback : clampNumber(field, raw, fallback);
   };
+
+  let rawFees: string | null = null;
+  try {
+    rawFees = params.get('xf');
+  } catch {
+    rawFees = null;
+  }
 
   const bool = (field: keyof typeof KEYS): boolean => {
     const raw = read(field);
@@ -172,5 +209,6 @@ export function parseConfig(query: string): SimConfig {
     logScale: bool('logScale'),
     etfName: cleanName(read('etfName') ?? '', DEFAULT_CONFIG.etfName),
     pprName: cleanName(read('pprName') ?? '', DEFAULT_CONFIG.pprName),
+    extraFees: rawFees === null ? DEFAULT_CONFIG.extraFees : decodeFees(rawFees) ?? [],
   };
 }
