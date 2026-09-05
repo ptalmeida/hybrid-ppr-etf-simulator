@@ -105,9 +105,36 @@ function valueInHand(
   return { benefit, mortgage, total: benefit + mortgage };
 }
 
+/**
+ * What actually reaches the investment after the entry charge.
+ *
+ * A PPR takes a subscription commission off each entrega — the market average
+ * is around 3%, and some products reach 6%. An ETF purchase pays dealing
+ * commission and FX spread instead, part percentage and part flat, which is
+ * why the flat component matters so much for small monthly contributions.
+ */
+function applyEntryFee(
+  amount: number,
+  product: 'etf' | 'ppr',
+  cfg: SimConfig,
+): number {
+  if (amount <= 0) return 0;
+  const net =
+    product === 'ppr'
+      ? amount * (1 - cfg.pprSubscriptionFee / 100)
+      : amount * (1 - cfg.etfBuyFee / 100) - cfg.etfBuyFeeFixed;
+  return Math.max(0, net);
+}
+
 function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
-  const etfNetRate = cfg.etfReturn - cfg.etfFee;
-  const pprNetRate = cfg.pprReturn - cfg.pprFee - cfg.pprTrackingError;
+  // Annual drag stacks: every percentage charged on assets, each year.
+  const etfNetRate = cfg.etfReturn - cfg.etfFee - cfg.etfCustodyFee;
+  const pprNetRate =
+    cfg.pprReturn -
+    cfg.pprFee -
+    cfg.pprDepositaryFee -
+    cfg.pprUnderlyingFee -
+    cfg.pprTrackingError;
   const annualInstalments = cfg.monthlyInstalment * 12;
 
   // Last year the mortgage is still running. Instalments only fall due inside
@@ -164,6 +191,8 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
   let taxPaid = 0;
   /** Entregas whose 20% was already above the age cap, so bought no deduction. */
   let contributionsWithoutBenefit = 0;
+  /** Every commission paid across the horizon, tax excluded. */
+  let feesPaid = 0;
   /** IRS deductions handed back for redeeming entregas younger than 5 years. */
   let redemptionClawback = 0;
   /** Audit trail: every tranche redeemed, in the year it was redeemed. */
@@ -178,9 +207,21 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
    * after the year's contribution, depending on `contributionTiming`.
    */
   const applyGrowth = () => {
+    // the percentage charges are the gap between gross and net growth
+    const etfBefore = balanceOf(tranches, 'etf');
+    const pprBefore = balanceOf(tranches, 'ppr');
+    feesPaid +=
+      (etfBefore * (cfg.etfFee + cfg.etfCustodyFee)) / 100 +
+      (pprBefore *
+        (cfg.pprFee + cfg.pprDepositaryFee + cfg.pprUnderlyingFee)) /
+        100;
+
     tranches = growTranches(tranches, 'etf', etfNetRate);
     tranches = growTranches(tranches, 'ppr', pprNetRate);
+
+    const beforeFlat = balanceOf(tranches, 'etf');
     tranches = chargeFixedCost(tranches, 'etf', cfg.etfAnnualCost);
+    feesPaid += beforeFlat - balanceOf(tranches, 'etf');
   };
 
   for (let year = 1; year <= cfg.years; year++) {
@@ -221,13 +262,18 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
     pendingPprBenefit = 0;
 
     if (intoPrimary > 0) {
-      tranches.push({
-        yearDeposited: year,
-        principal: intoPrimary,
-        value: intoPrimary,
-        product: destination,
-      });
+      const invested = applyEntryFee(intoPrimary, destination, cfg);
+      feesPaid += intoPrimary - invested;
+      if (invested > 0) {
+        tranches.push({
+          yearDeposited: year,
+          principal: invested,
+          value: invested,
+          product: destination,
+        });
+      }
       if (destination === 'ppr') {
+        // the IRS deduction is on what you paid in, before the gestora's cut
         entregas.push({ year, amount: intoPrimary });
       }
     }
@@ -248,10 +294,12 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       }
 
       if (policy.reinvests && cfg.benefitDestination === 'etf') {
+        const invested = applyEntryFee(benefitThisYear, 'etf', cfg);
+        feesPaid += benefitThisYear - invested;
         tranches.push({
           yearDeposited: year,
-          principal: benefitThisYear,
-          value: benefitThisYear,
+          principal: invested,
+          value: invested,
           product: 'etf',
         });
       } else if (policy.reinvests && cfg.benefitDestination === 'ppr') {
@@ -280,9 +328,12 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
         // the plan's own first entrega, from the full history. Redeeming does
         // not rejuvenate the contract, so this must not come from what is left.
         firstEntregaYear: entregas[0].year,
+        redemptionFeePct: cfg.pprRedemptionFee,
+        redemptionFeeYears: cfg.pprRedemptionFeeYears,
       });
       tranches = result.remaining;
       redeemedThisYear = result.grossRedeemed;
+      feesPaid += result.fee;
       // only the NET proceeds can settle an instalment; the tax is withheld
       mortgagePaid += result.netProceeds;
       taxPaid += result.tax;
@@ -317,6 +368,7 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
           principal: slice.principal,
           profit: slice.profit,
           tax: slice.tax,
+          fee: slice.fee,
           net: slice.net,
           benefitEarned: (earned?.amount ?? 0) * slice.fraction,
           clawback,
@@ -324,10 +376,12 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       }
 
       if (policy.reinvests && cfg.reinvestRedemption && result.netProceeds > 0) {
+        const invested = applyEntryFee(result.netProceeds, 'etf', cfg);
+        feesPaid += result.netProceeds - invested;
         tranches.push({
           yearDeposited: year,
-          principal: result.netProceeds,
-          value: result.netProceeds,
+          principal: invested,
+          value: invested,
           product: 'etf',
         });
       }
@@ -337,6 +391,7 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
     const snapshot = liquidate(tranches, year, {
       etfTaxMode: cfg.etfTaxMode,
       marginalRate: cfg.marginalRate,
+      etfSellFeePct: cfg.etfSellFee,
     });
 
     rows.push({
@@ -365,7 +420,9 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
     etfTaxMode: cfg.etfTaxMode,
     marginalRate: cfg.marginalRate,
     pprRegime: penalisedExit ? 'penalised' : 'legal',
+    etfSellFeePct: cfg.etfSellFee,
   });
+  feesPaid += final.fee;
 
   // EBF art. 21.º: redeeming outside legal conditions voids the deduction.
   // Every euro deducted goes back, majorado em 10% por cada ano decorrido.
@@ -431,6 +488,7 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       netValue: final.net - benefitClawback,
       netWithBenefits: final.net - benefitClawback + inHand.total,
       totalContributed: contributed,
+      feesPaid,
       effectiveTaxRate: totalGain > 0 ? Math.min(1, totalTax / totalGain) : 0,
       bracketBreakdown: final.bracketBreakdown,
     },

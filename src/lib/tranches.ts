@@ -64,6 +64,10 @@ export interface RedeemOptions {
    * plan is drained, which produces a spurious five-year on/off cycle.
    */
   firstEntregaYear: number;
+  /** % of the redeemed amount charged by the gestora on young units. */
+  redemptionFeePct?: number;
+  /** Unit age below which `redemptionFeePct` applies. */
+  redemptionFeeYears?: number;
 }
 
 /** One tranche consumed by a redemption. Feeds the clawback maths and the ledger. */
@@ -80,7 +84,9 @@ export interface RedeemedSlice {
   /** Gain portion of `gross`, taxed at 8%. */
   profit: number;
   tax: number;
-  /** What actually reached the instalment. */
+  /** Gestora's redemption commission on this slice. */
+  fee: number;
+  /** What actually reached the instalment, after tax and fee. */
   net: number;
 }
 
@@ -88,6 +94,8 @@ export interface RedeemResult {
   remaining: Tranche[];
   grossRedeemed: number;
   tax: number;
+  /** Total redemption commission charged. */
+  fee: number;
   netProceeds: number;
   slices: RedeemedSlice[];
 }
@@ -121,6 +129,7 @@ export function redeemPprFifo(
       remaining: tranches,
       grossRedeemed: 0,
       tax: 0,
+      fee: 0,
       netProceeds: 0,
       slices: [],
     };
@@ -137,9 +146,13 @@ export function redeemPprFifo(
     t.product === 'ppr' &&
     (wholePlanEligible || currentYear - t.yearDeposited >= PPR_MIN_TRANCHE_AGE);
 
+  const feePct = (opts.redemptionFeePct ?? 0) / 100;
+  const feeMaxAge = opts.redemptionFeeYears ?? 0;
+
   let netStillNeeded = netTarget;
   let grossRedeemed = 0;
   let tax = 0;
+  let feeTotal = 0;
   const remaining: Tranche[] = [];
   const slices: RedeemedSlice[] = [];
 
@@ -154,17 +167,21 @@ export function redeemPprFifo(
     // tranche yields `netPerGross` euros of spendable cash. Invert that to
     // find the gross needed to cover what is still owed on the instalments.
     const profitShare = Math.max(0, (t.value - t.principal) / t.value);
-    const netPerGross = 1 - PPR_LEGAL_EFFECTIVE_RATE * profitShare;
+    const sliceFeePct = currentYear - t.yearDeposited < feeMaxAge ? feePct : 0;
+    const netPerGross =
+      1 - PPR_LEGAL_EFFECTIVE_RATE * profitShare - sliceFeePct;
     const grossNeeded =
       netPerGross > 0 ? netStillNeeded / netPerGross : Number.POSITIVE_INFINITY;
 
     const take = Math.min(t.value, grossNeeded);
     const principalTaken = t.principal * (take / t.value);
     const takeTax = pprTaxOnProfit(take - principalTaken);
+    const takeFee = take * sliceFeePct;
 
     grossRedeemed += take;
     tax += takeTax;
-    netStillNeeded -= take - takeTax;
+    feeTotal += takeFee;
+    netStillNeeded -= take - takeTax - takeFee;
     slices.push({
       yearDeposited: t.yearDeposited,
       ageYears: currentYear - t.yearDeposited,
@@ -173,7 +190,8 @@ export function redeemPprFifo(
       principal: principalTaken,
       profit: take - principalTaken,
       tax: takeTax,
-      net: take - takeTax,
+      fee: takeFee,
+      net: take - takeTax - takeFee,
     });
 
     if (take < t.value) {
@@ -189,7 +207,8 @@ export function redeemPprFifo(
     remaining,
     grossRedeemed,
     tax,
-    netProceeds: grossRedeemed - tax,
+    fee: feeTotal,
+    netProceeds: grossRedeemed - tax - feeTotal,
     slices,
   };
 }
@@ -197,6 +216,8 @@ export function redeemPprFifo(
 export interface LiquidateOptions {
   etfTaxMode: EtfTaxMode;
   marginalRate: number;
+  /** % of the ETF sale taken by the broker. */
+  etfSellFeePct?: number;
   /**
    * How the PPR is cashed out at the end of the horizon.
    *
@@ -215,6 +236,8 @@ export interface LiquidateResult {
   gross: number;
   etfTax: number;
   pprTax: number;
+  /** Dealing commission charged on the way out. */
+  fee: number;
   net: number;
   bracketBreakdown: BracketSlice[];
 }
@@ -225,9 +248,11 @@ export function liquidate(
   finalYear: number,
   opts: LiquidateOptions,
 ): LiquidateResult {
+  const sellFeePct = (opts.etfSellFeePct ?? 0) / 100;
   let gross = 0;
   let etfTax = 0;
   let pprTax = 0;
+  let fee = 0;
   const buckets = new Map<string, BracketSlice>();
 
   for (const t of tranches) {
@@ -242,6 +267,7 @@ export function liquidate(
       continue;
     }
 
+    fee += t.value * sellFeePct;
     const age = finalYear - t.yearDeposited;
     const rate = etfRateForAge(age, opts.etfTaxMode, opts.marginalRate);
     const tax = profit * rate;
@@ -263,7 +289,8 @@ export function liquidate(
     gross,
     etfTax,
     pprTax,
-    net: gross - etfTax - pprTax,
+    fee,
+    net: gross - etfTax - pprTax - fee,
     bracketBreakdown: [...buckets.values()],
   };
 }

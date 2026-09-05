@@ -163,8 +163,19 @@ describe('simulate — the reference case from the community thread', () => {
     etfReturn: 6,
     etfFee: 0,
     pprReturn: 6,
+    // their model had exactly one PPR charge: the 0.75% management fee. Pin
+    // every other charge to zero so a future default cannot silently move the
+    // fixture, which is what happened when the depositary fee was introduced.
     pprFee: 0.75,
+    pprSubscriptionFee: 0,
+    pprDepositaryFee: 0,
+    pprUnderlyingFee: 0,
+    pprRedemptionFee: 0,
     pprTrackingError: 0,
+    etfCustodyFee: 0,
+    etfBuyFee: 0,
+    etfBuyFeeFixed: 0,
+    etfSellFee: 0,
     etfAnnualCost: 0,
     mortgageStartYear: 999,
     benefitDestination: 'consumed',
@@ -924,6 +935,177 @@ describe('simulate — benefit destination', () => {
     expect(byId(out, 'hybrid').final.netValue).toBeLessThan(
       byId(out, 'etf').final.netValue,
     );
+  });
+});
+
+describe('simulate — the full fee schedule', () => {
+  // A PPR stacks several charges at once. Golden SGF, for example: 0%
+  // subscription, 0.75-1% management, up to 0.08% depositary, 0.09-0.6% for
+  // the ETFs it holds, and up to 1% redemption on units under a year old.
+  const noFees = {
+    pprSubscriptionFee: 0,
+    pprFee: 0,
+    pprDepositaryFee: 0,
+    pprUnderlyingFee: 0,
+    pprRedemptionFee: 0,
+    pprTrackingError: 0,
+    etfFee: 0,
+    etfCustodyFee: 0,
+    etfBuyFee: 0,
+    etfBuyFeeFixed: 0,
+    etfSellFee: 0,
+    etfAnnualCost: 0,
+  } as const;
+
+  it('charges nothing when every fee is zero', () => {
+    for (const s of simulate(cfg({ ...noFees, years: 20 })).scenarios) {
+      expect(s.final.feesPaid).toBeCloseTo(0, 6);
+    }
+  });
+
+  it('takes the subscription fee off each entrega before it is invested', () => {
+    const h = byId(
+      simulate(
+        cfg({
+          ...noFees,
+          years: 10,
+          annualInvestment: 1000,
+          pprSubscriptionFee: 3,
+          mortgageStartYear: 999,
+        }),
+      ),
+      'hybrid',
+    ).final;
+    // 3% of 1000, ten times
+    expect(h.feesPaid).toBeCloseTo(300, 6);
+    // but the deduction is on what you paid in, not on what survived the fee
+    expect(h.irsBenefitTotal).toBeCloseTo(10 * 200, 6);
+  });
+
+  it('stacks the annual percentage charges on the PPR', () => {
+    const base = { ...noFees, years: 20, mortgageStartYear: 999 } as const;
+    const one = byId(simulate(cfg({ ...base, pprFee: 1 })), 'hybrid').final
+      .grossValue;
+    const split = byId(
+      simulate(
+        cfg({
+          ...base,
+          pprFee: 0.5,
+          pprDepositaryFee: 0.3,
+          pprUnderlyingFee: 0.2,
+        }),
+      ),
+      'hybrid',
+    ).final.grossValue;
+    // 0.5 + 0.3 + 0.2 must behave exactly like a single 1%
+    expect(split).toBeCloseTo(one, 6);
+  });
+
+  it('charges the ETF custody percentage alongside the TER', () => {
+    const base = { ...noFees, years: 20 } as const;
+    const ter = byId(simulate(cfg({ ...base, etfFee: 0.5 })), 'etf').final
+      .grossValue;
+    const split = byId(
+      simulate(cfg({ ...base, etfFee: 0.2, etfCustodyFee: 0.3 })),
+      'etf',
+    ).final.grossValue;
+    expect(split).toBeCloseTo(ter, 6);
+  });
+
+  it('charges a flat dealing fee on every purchase', () => {
+    const f = byId(
+      simulate(cfg({ ...noFees, years: 10, etfBuyFeeFixed: 5 })),
+      'etf',
+    ).final;
+    expect(f.feesPaid).toBeCloseTo(50, 6);
+  });
+
+  it('charges a percentage dealing fee on every purchase', () => {
+    const f = byId(
+      simulate(
+        cfg({ ...noFees, years: 10, annualInvestment: 1000, etfBuyFee: 1 }),
+      ),
+      'etf',
+    ).final;
+    expect(f.feesPaid).toBeCloseTo(100, 6);
+  });
+
+  it('charges the sell fee on the way out', () => {
+    const f = byId(
+      simulate(cfg({ ...noFees, years: 10, etfSellFee: 0.5 })),
+      'etf',
+    ).final;
+    expect(f.feesPaid).toBeCloseTo((f.grossValue * 0.5) / 100, 6);
+  });
+
+  it('charges the redemption fee only on units younger than the cutoff', () => {
+    const base = {
+      ...noFees,
+      years: 20,
+      mortgageStartYear: 3,
+      pprRedemptionFee: 1,
+    } as const;
+
+    // by default nothing under five years is ever redeemed, so a one-year
+    // cutoff can never bite
+    expect(
+      byId(simulate(cfg({ ...base, pprRedemptionFeeYears: 1 })), 'hybrid').final
+        .feesPaid,
+    ).toBeCloseTo(0, 6);
+
+    // widen the cutoff past five years and every redemption pays it
+    const wide = byId(
+      simulate(cfg({ ...base, pprRedemptionFeeYears: 8 })),
+      'hybrid',
+    );
+    expect(wide.final.feesPaid).toBeGreaterThan(0);
+    // charged on units under the cutoff, and never on older ones
+    expect(wide.redemptions.some((e) => e.fee > 0)).toBe(true);
+    for (const e of wide.redemptions) {
+      if (e.ageYears >= 8) expect(e.fee).toBeCloseTo(0, 6);
+      else expect(e.fee).toBeCloseTo(e.gross * 0.01, 6);
+    }
+  });
+
+  it('drains the plan faster, so it pays fewer instalments overall', () => {
+    // Within a year the cap binds on net, so a fee just means more gross comes
+    // out. Over the horizon that extra gross is finite: the plan empties
+    // sooner and ends up covering less of the mortgage.
+    const base = {
+      ...noFees,
+      years: 20,
+      mortgageStartYear: 3,
+      pprRedemptionFeeYears: 8,
+    } as const;
+    const free = byId(simulate(cfg({ ...base })), 'hybrid').final;
+    const charged = byId(
+      simulate(cfg({ ...base, pprRedemptionFee: 1 })),
+      'hybrid',
+    ).final;
+    expect(charged.mortgagePaidTotal).toBeLessThan(free.mortgagePaidTotal);
+    expect(charged.netWithBenefits).toBeLessThan(free.netWithBenefits);
+  });
+
+  it('reports fees separately from tax', () => {
+    const h = byId(
+      simulate(cfg({ years: 20, pprSubscriptionFee: 2, etfBuyFee: 0.5 })),
+      'hybrid',
+    ).final;
+    expect(h.feesPaid).toBeGreaterThan(0);
+    // fees are not tax and must not be folded into the tax figures
+    expect(h.etfTax + h.pprTax + h.pprTaxDuringRedemptions).toBeGreaterThan(0);
+    expect(h.feesPaid).not.toBeCloseTo(h.etfTax, 0);
+  });
+
+  it('makes a 3% subscription fee visibly worse than none', () => {
+    const base = { years: 30 } as const;
+    const free = byId(simulate(cfg({ ...base })), 'hybrid').final
+      .netWithBenefits;
+    const charged = byId(
+      simulate(cfg({ ...base, pprSubscriptionFee: 3 })),
+      'hybrid',
+    ).final.netWithBenefits;
+    expect(charged).toBeLessThan(free);
   });
 });
 

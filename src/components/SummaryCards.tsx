@@ -81,6 +81,9 @@ export function SummaryCards({ scenarios }: { scenarios: ScenarioResult[] }) {
                 <Row label="Só a carteira" value={formatEur(s.final.netValue)} />
               )}
               <Row label="Imposto total" value={formatEur(totalTax)} />
+              {s.final.feesPaid > 0.5 && (
+                <Row label="Comissões pagas" value={formatEur(s.final.feesPaid)} />
+              )}
               <Row
                 label="Taxa efetiva sobre ganhos"
                 value={formatPct(s.final.effectiveTaxRate)}

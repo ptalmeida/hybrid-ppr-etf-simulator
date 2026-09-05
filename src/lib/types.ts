@@ -14,9 +14,34 @@ export interface SimConfig {
   years: number;
   etfReturn: number;
   pprReturn: number;
-  etfFee: number;
+  // --- PPR charges -------------------------------------------------------
+  /** % of each entrega taken before it reaches the plan. */
+  pprSubscriptionFee: number;
+  /** % a year on assets — the gestora's management commission. */
   pprFee: number;
+  /** % a year on assets — the depositary/custodian. */
+  pprDepositaryFee: number;
+  /** % a year — running costs of the funds the PPR itself holds. */
+  pprUnderlyingFee: number;
+  /** % of the amount redeemed, charged only on young units. */
+  pprRedemptionFee: number;
+  /** Unit age below which the redemption fee applies, in years. */
+  pprRedemptionFeeYears: number;
+  /** % a year of realised underperformance versus the stated benchmark. */
   pprTrackingError: number;
+
+  // --- ETF charges -------------------------------------------------------
+  /** % a year — the fund's TER. */
+  etfFee: number;
+  /** % a year — broker custody, where charged as a percentage. */
+  etfCustodyFee: number;
+  /** % of each purchase — commission and FX spread. */
+  etfBuyFee: number;
+  /** € per purchase — flat dealing commission. */
+  etfBuyFeeFixed: number;
+  /** % of the sale — commission and FX spread on the way out. */
+  etfSellFee: number;
+  /** € a year — flat platform or connectivity costs. */
   etfAnnualCost: number;
   hasMortgage: boolean;
   mortgageStartYear: number;
@@ -72,6 +97,8 @@ export interface RedemptionEntry {
   principal: number;
   profit: number;
   tax: number;
+  /** Gestora's redemption commission on this slice. */
+  fee: number;
   net: number;
   /** IRS deduction this entrega earned in the year it was made. */
   benefitEarned: number;
@@ -113,6 +140,8 @@ export interface ScenarioFinal {
   netValue: number;
   netWithBenefits: number;
   totalContributed: number;
+  /** Every charge paid across the horizon, excluding tax. */
+  feesPaid: number;
   effectiveTaxRate: number;
   bracketBreakdown: BracketSlice[];
 }

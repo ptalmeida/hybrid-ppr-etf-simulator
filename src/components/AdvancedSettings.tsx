@@ -26,48 +26,167 @@ export function AdvancedSettings({ config, onChange }: Props) {
 
       {open && (
         <div className="space-y-5 border-t border-slate-200 p-4 dark:border-slate-800">
-          <NumberField
-            id="etfFee"
-            label="Comissão anual do ETF (TER)"
-            suffix="%"
-            step={0.01}
-            min={BOUNDS.etfFee[0]}
-            max={BOUNDS.etfFee[1]}
-            value={config.etfFee}
-            onChange={(etfFee) => onChange({ etfFee })}
-          />
-          <NumberField
-            id="pprFee"
-            label="Comissão anual de gestão do PPR"
-            suffix="%"
-            step={0.01}
-            min={BOUNDS.pprFee[0]}
-            max={BOUNDS.pprFee[1]}
-            value={config.pprFee}
-            onChange={(pprFee) => onChange({ pprFee })}
-          />
-          <NumberField
-            id="pprTrackingError"
-            label="Desvio face ao índice do PPR"
-            suffix="%"
-            step={0.1}
-            min={BOUNDS.pprTrackingError[0]}
-            max={BOUNDS.pprTrackingError[1]}
-            value={config.pprTrackingError}
-            onChange={(pprTrackingError) => onChange({ pprTrackingError })}
-            hint="A rendibilidade real de um PPR pode ficar bastante abaixo do índice que diz seguir, para além da comissão de gestão. Numa análise da comunidade a um PPR popular baseado em ETF, esse desvio rondava 2,6% ao ano — sozinho, o suficiente para anular toda a vantagem fiscal. Fica a 0 por omissão para o simulador não tomar partido."
-          />
-          <NumberField
-            id="etfAnnualCost"
-            label="Custos anuais de corretora"
-            suffix="€"
-            step={1}
-            min={BOUNDS.etfAnnualCost[0]}
-            max={BOUNDS.etfAnnualCost[1]}
-            value={config.etfAnnualCost}
-            onChange={(etfAnnualCost) => onChange({ etfAnnualCost })}
-            hint="Custódia, conectividade e comissões de compra. Aplica-se apenas ao ETF."
-          />
+          <div className="space-y-4">
+            <h3 className="text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
+              Comissões do PPR
+            </h3>
+            <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+              Um PPR cobra várias comissões ao mesmo tempo, e todas se somam. No
+              mercado português a comissão de subscrição ronda em média os 3% e
+              chega aos 5,9%; a de gestão anda entre 0,75% e 1%; o depositário
+              vai até 0,08%; e os fundos que o PPR tem lá dentro cobram os seus
+              próprios custos correntes, tipicamente 0,09% a 0,6%.
+            </p>
+            <NumberField
+              id="pprSubscriptionFee"
+              label="Comissão de subscrição"
+              suffix="%"
+              step={0.1}
+              min={BOUNDS.pprSubscriptionFee[0]}
+              max={BOUNDS.pprSubscriptionFee[1]}
+              value={config.pprSubscriptionFee}
+              onChange={(pprSubscriptionFee) => onChange({ pprSubscriptionFee })}
+              hint="Cobrada sobre cada entrega, antes de o dinheiro chegar ao plano. A dedução de IRS continua a ser calculada sobre o valor que entregou, não sobre o que sobra."
+            />
+            <NumberField
+              id="pprFee"
+              label="Comissão de gestão"
+              suffix="% / ano"
+              step={0.01}
+              min={BOUNDS.pprFee[0]}
+              max={BOUNDS.pprFee[1]}
+              value={config.pprFee}
+              onChange={(pprFee) => onChange({ pprFee })}
+            />
+            <NumberField
+              id="pprDepositaryFee"
+              label="Comissão de depósito"
+              suffix="% / ano"
+              step={0.01}
+              min={BOUNDS.pprDepositaryFee[0]}
+              max={BOUNDS.pprDepositaryFee[1]}
+              value={config.pprDepositaryFee}
+              onChange={(pprDepositaryFee) => onChange({ pprDepositaryFee })}
+              hint="Paga ao depositário dos títulos. Pequena, mas cobrada todos os anos."
+            />
+            <NumberField
+              id="pprUnderlyingFee"
+              label="Custos correntes dos fundos subjacentes"
+              suffix="% / ano"
+              step={0.01}
+              min={BOUNDS.pprUnderlyingFee[0]}
+              max={BOUNDS.pprUnderlyingFee[1]}
+              value={config.pprUnderlyingFee}
+              onChange={(pprUnderlyingFee) => onChange({ pprUnderlyingFee })}
+              hint="Um PPR baseado em ETF paga também o TER dos ETF que tem em carteira — uma camada de custo por cima da comissão de gestão, que muitas comparações esquecem."
+            />
+            <NumberField
+              id="pprRedemptionFee"
+              label="Comissão de reembolso"
+              suffix="%"
+              step={0.1}
+              min={BOUNDS.pprRedemptionFee[0]}
+              max={BOUNDS.pprRedemptionFee[1]}
+              value={config.pprRedemptionFee}
+              onChange={(pprRedemptionFee) => onChange({ pprRedemptionFee })}
+            />
+            <NumberField
+              id="pprRedemptionFeeYears"
+              label="…aplicada a unidades com menos de"
+              suffix="anos"
+              step={1}
+              min={BOUNDS.pprRedemptionFeeYears[0]}
+              max={BOUNDS.pprRedemptionFeeYears[1]}
+              value={config.pprRedemptionFeeYears}
+              onChange={(pprRedemptionFeeYears) =>
+                onChange({ pprRedemptionFeeYears })
+              }
+              hint="Muitos PPR só cobram reembolso no primeiro ano. Como os resgates para o crédito exigem cinco anos de antiguidade, um limite de 1 ano nunca chega a ser aplicado."
+            />
+            <NumberField
+              id="pprTrackingError"
+              label="Desvio face ao índice"
+              suffix="% / ano"
+              step={0.1}
+              min={BOUNDS.pprTrackingError[0]}
+              max={BOUNDS.pprTrackingError[1]}
+              value={config.pprTrackingError}
+              onChange={(pprTrackingError) => onChange({ pprTrackingError })}
+              hint="Não é uma comissão, mas custa o mesmo: a rendibilidade real pode ficar abaixo do índice que o PPR diz seguir. Numa análise da comunidade a um PPR popular baseado em ETF, esse desvio rondava 2,6% ao ano — sozinho, o suficiente para anular toda a vantagem fiscal."
+            />
+          </div>
+
+          <hr className="border-slate-200 dark:border-slate-800" />
+
+          <div className="space-y-4">
+            <h3 className="text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
+              Custos do ETF
+            </h3>
+            <NumberField
+              id="etfFee"
+              label="TER do fundo"
+              suffix="% / ano"
+              step={0.01}
+              min={BOUNDS.etfFee[0]}
+              max={BOUNDS.etfFee[1]}
+              value={config.etfFee}
+              onChange={(etfFee) => onChange({ etfFee })}
+            />
+            <NumberField
+              id="etfCustodyFee"
+              label="Custódia da corretora"
+              suffix="% / ano"
+              step={0.01}
+              min={BOUNDS.etfCustodyFee[0]}
+              max={BOUNDS.etfCustodyFee[1]}
+              value={config.etfCustodyFee}
+              onChange={(etfCustodyFee) => onChange({ etfCustodyFee })}
+              hint="Algumas corretoras cobram custódia em percentagem do valor da carteira."
+            />
+            <NumberField
+              id="etfBuyFee"
+              label="Comissão de compra"
+              suffix="%"
+              step={0.01}
+              min={BOUNDS.etfBuyFee[0]}
+              max={BOUNDS.etfBuyFee[1]}
+              value={config.etfBuyFee}
+              onChange={(etfBuyFee) => onChange({ etfBuyFee })}
+              hint="Inclua aqui o spread cambial se comprar em dólares."
+            />
+            <NumberField
+              id="etfBuyFeeFixed"
+              label="Comissão fixa por compra"
+              suffix="€"
+              step={0.5}
+              min={BOUNDS.etfBuyFeeFixed[0]}
+              max={BOUNDS.etfBuyFeeFixed[1]}
+              value={config.etfBuyFeeFixed}
+              onChange={(etfBuyFeeFixed) => onChange({ etfBuyFeeFixed })}
+              hint="Pesa muito mais em entregas pequenas do que em entregas grandes."
+            />
+            <NumberField
+              id="etfSellFee"
+              label="Comissão de venda"
+              suffix="%"
+              step={0.01}
+              min={BOUNDS.etfSellFee[0]}
+              max={BOUNDS.etfSellFee[1]}
+              value={config.etfSellFee}
+              onChange={(etfSellFee) => onChange({ etfSellFee })}
+            />
+            <NumberField
+              id="etfAnnualCost"
+              label="Custos anuais fixos"
+              suffix="€ / ano"
+              step={1}
+              min={BOUNDS.etfAnnualCost[0]}
+              max={BOUNDS.etfAnnualCost[1]}
+              value={config.etfAnnualCost}
+              onChange={(etfAnnualCost) => onChange({ etfAnnualCost })}
+              hint="Conectividade, manutenção de conta, comissões de bolsa."
+            />
+          </div>
 
           <hr className="border-slate-200 dark:border-slate-800" />
 

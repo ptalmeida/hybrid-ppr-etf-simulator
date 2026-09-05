@@ -33,7 +33,7 @@ npm run dev
 Outros comandos:
 
 ```bash
-npm test          # 184 testes da lógica fiscal
+npm test          # 195 testes da lógica fiscal
 npm run build     # build de produção para dist/
 ```
 
@@ -85,6 +85,26 @@ Duas notas sobre pontos onde as comparações publicadas costumam errar:
   ano. As gestoras aplicam diretamente o critério mais exigente. O PPR carrega
   por isso sempre as últimas cinco entregas, e a última entrega útil é a de
   cinco anos antes do fim do crédito.
+
+## Comissões
+
+Os PPR cobram várias comissões em simultâneo e todas se somam. O simulador
+modela cada camada em separado:
+
+| Camada | Como é cobrada | Valores típicos |
+|---|---|---|
+| Subscrição | sobre cada entrega | média 3%, até 5,9%; 0% nos PPR ETF |
+| Gestão | % ao ano sobre o valor | 0,75% a 1% |
+| Depósito | % ao ano sobre a carteira | até 0,08% |
+| Fundos subjacentes | % ao ano, por dentro | 0,09% a 0,6% num PPR de ETF |
+| Reembolso | % do valor resgatado | até 1%, tipicamente só no 1.º ano |
+| Desvio face ao índice | perda de rendibilidade | 0 a ~2,6% observados |
+
+Do lado do ETF: TER, custódia em percentagem, comissão de compra (percentual e
+fixa), comissão de venda e custos anuais fixos.
+
+A dedução de IRS incide sobre o valor **entregue**, não sobre o que sobra depois
+da comissão de subscrição.
 
 ## O que o simulador não modela
 

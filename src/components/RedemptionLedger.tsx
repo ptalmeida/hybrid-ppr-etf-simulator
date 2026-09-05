@@ -12,6 +12,7 @@ const HEADERS = [
   'Capital',
   'Lucro',
   'Imposto 8%',
+  'Comissão',
   'Para a prestação',
   'Dedução obtida',
 ] as const;
@@ -27,6 +28,7 @@ function toCsv(entries: RedemptionEntry[]): string {
       e.principal.toFixed(2),
       e.profit.toFixed(2),
       e.tax.toFixed(2),
+      e.fee.toFixed(2),
       e.net.toFixed(2),
       e.benefitEarned.toFixed(2),
       e.clawback.toFixed(2),
@@ -58,6 +60,7 @@ export function RedemptionLedger({
       principal: a.principal + e.principal,
       profit: a.profit + e.profit,
       tax: a.tax + e.tax,
+      fee: a.fee + e.fee,
       net: a.net + e.net,
       benefitEarned: a.benefitEarned + e.benefitEarned,
       clawback: a.clawback + e.clawback,
@@ -67,6 +70,7 @@ export function RedemptionLedger({
       principal: 0,
       profit: 0,
       tax: 0,
+      fee: 0,
       net: 0,
       benefitEarned: 0,
       clawback: 0,
@@ -172,6 +176,9 @@ export function RedemptionLedger({
                     <td className={`${num} text-rose-600 dark:text-rose-400`}>
                       −{formatEurPrecise(e.tax)}
                     </td>
+                    <td className={`${num} text-rose-600 dark:text-rose-400`}>
+                      {e.fee > 0 ? `−${formatEurPrecise(e.fee)}` : '—'}
+                    </td>
                     <td className={`${num} font-medium`}>
                       {formatEurPrecise(e.net)}
                     </td>
@@ -191,6 +198,9 @@ export function RedemptionLedger({
                   <td className={num}>{formatEurPrecise(totals.profit)}</td>
                   <td className={`${num} text-rose-600 dark:text-rose-400`}>
                     −{formatEurPrecise(totals.tax)}
+                  </td>
+                  <td className={`${num} text-rose-600 dark:text-rose-400`}>
+                    {totals.fee > 0 ? `−${formatEurPrecise(totals.fee)}` : '—'}
                   </td>
                   <td className={num}>{formatEurPrecise(totals.net)}</td>
                   <td className={`${num} text-emerald-700 dark:text-emerald-400`}>
