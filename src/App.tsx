@@ -55,11 +55,17 @@ export default function App() {
           PPR + crédito habitação vs. ETF
         </h1>
         <p className="mt-3 text-base leading-relaxed text-slate-600 dark:text-slate-400">
-          Compara três estratégias de longo prazo para quem vive em Portugal e
-          conta ter crédito habitação: investir só num ETF, investir só num PPR,
-          ou a estratégia híbrida — usar o PPR para captar o benefício de IRS,
+          Compara duas estratégias de longo prazo para quem vive em Portugal e
+          conta ter crédito habitação: investir tudo diretamente num ETF, ou a
+          estratégia híbrida — entregar ao PPR para captar o benefício de IRS,
           resgatá-lo a 8% para pagar as prestações, e reinvestir no ETF tudo o
           que isso liberta.
+        </p>
+        <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+          A híbrida nem sempre ganha. Uma comissão de gestão alta, um desvio face
+          ao índice, não reinvestir a folga, ou não chegar a ter crédito
+          habitação chegam para a pôr atrás. Mexa nos parâmetros e veja onde a
+          vantagem desaparece.
         </p>
       </header>
 
@@ -86,7 +92,7 @@ export default function App() {
               salário; na estratégia híbrida parte dela é paga pelo{' '}
               {config.pprName}
               {config.reinvestRedemption
-                ? ', e essa folga do salário é investida no ETF. É por isso que a linha «Total» de «sai do seu bolso» é igual nos três cartões: a comparação é justa.'
+                ? ', e essa folga do salário é investida no ETF. É por isso que a linha «Total» de «sai do seu bolso» é igual nos dois cartões: a comparação é justa.'
                 : ', e essa folga do salário é gasta. Repare que o total que sai do bolso passa a ser menor na estratégia híbrida — está a comparar cenários que lhe custam valores diferentes.'}
             </p>
           )}

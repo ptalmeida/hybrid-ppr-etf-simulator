@@ -1,18 +1,22 @@
 # Simulador PPR + Crédito Habitação vs ETF
 
-Simulador educativo que compara três estratégias de investimento de longo prazo
+Simulador educativo que compara duas estratégias de investimento de longo prazo
 para residentes fiscais em Portugal que contam ter crédito habitação.
 
 **Não é aconselhamento financeiro.** As regras fiscais implementadas são as
 vigentes em 2026 e mudam com frequência.
 
-## As três estratégias
+## As duas estratégias
 
-1. **Só ETF** — entregas anuais num ETF de acumulação.
+1. **Só ETF** — entregas anuais num ETF de acumulação, com o crédito habitação
+   pago inteiramente do salário.
 2. **Híbrida** — entregas num PPR para captar a dedução de 20% no IRS, resgate a
-   8% para pagar prestações do crédito habitação, e reinvestimento no ETF de
-   tudo o que isso liberta.
-3. **Só PPR** — entregas num PPR, sem reinvestir nada.
+   8% para pagar prestações do crédito habitação, e reinvestimento no ETF da
+   folga que isso liberta no salário.
+
+A híbrida não ganha sempre. Uma comissão de gestão alta, um desvio face ao
+índice, não reinvestir a folga, ou não chegar a ter crédito habitação chegam
+para a pôr atrás — e o simulador mostra-o.
 
 Toda a configuração vive na query string, por isso qualquer resultado se partilha
 com um link.
@@ -27,7 +31,7 @@ npm run dev
 Outros comandos:
 
 ```bash
-npm test          # 91 testes da lógica fiscal
+npm test          # 120 testes da lógica fiscal
 npm run build     # build de produção para dist/
 ```
 

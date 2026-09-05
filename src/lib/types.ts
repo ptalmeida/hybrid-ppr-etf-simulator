@@ -1,5 +1,5 @@
 export type Product = 'etf' | 'ppr';
-export type ScenarioId = 'etf' | 'hybrid' | 'ppr';
+export type ScenarioId = 'etf' | 'hybrid';
 export type ContributionMode = 'fixed' | 'maxDeductible';
 export type EtfTaxMode = 'ladder' | 'flat28' | 'englobamento';
 export type BenefitDestination = 'etf' | 'ppr' | 'consumed';

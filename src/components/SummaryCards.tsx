@@ -5,7 +5,6 @@ import type { ScenarioResult } from '../lib/types';
 const ACCENTS: Record<string, string> = {
   etf: 'border-t-sky-500',
   hybrid: 'border-t-emerald-500',
-  ppr: 'border-t-violet-500',
 };
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -23,7 +22,7 @@ export function SummaryCards({ scenarios }: { scenarios: ScenarioResult[] }) {
   const baseline = scenarios.find((s) => s.id === 'etf')!;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2">
       {scenarios.map((s) => {
         // compared on total value created: the scenarios deliver value through
         // different channels, so portfolio alone is not a fair basis

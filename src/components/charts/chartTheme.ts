@@ -3,7 +3,6 @@ import { formatEur } from '../../lib/format';
 export const SERIES_COLORS: Record<string, string> = {
   etf: '#0ea5e9',
   hybrid: '#10b981',
-  ppr: '#8b5cf6',
 };
 
 export const AXIS = {

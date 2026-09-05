@@ -12,11 +12,10 @@ const byId = (out: SimOutput, id: ScenarioId) =>
   out.scenarios.find((s) => s.id === id)!;
 
 describe('simulate — structure', () => {
-  it('returns the three scenarios in a stable order', () => {
+  it('returns both scenarios in a stable order', () => {
     expect(simulate(cfg()).scenarios.map((s) => s.id)).toEqual([
       'etf',
       'hybrid',
-      'ppr',
     ]);
   });
 
@@ -37,7 +36,8 @@ describe('simulate — structure', () => {
   it('labels scenarios using the configured product names', () => {
     const out = simulate(cfg({ etfName: 'VWCE', pprName: 'Golden SGF' }));
     expect(byId(out, 'etf').label).toContain('VWCE');
-    expect(byId(out, 'ppr').label).toContain('Golden SGF');
+    expect(byId(out, 'hybrid').label).toContain('Golden SGF');
+    expect(byId(out, 'hybrid').label).toContain('VWCE');
   });
 
   it('does not throw on a zero-year or zero-contribution configuration', () => {
@@ -52,7 +52,6 @@ describe('simulate — contributions', () => {
       (s) => s.final.totalContributed,
     );
     expect(totals[0]).toBeCloseTo(totals[1], 6);
-    expect(totals[1]).toBeCloseTo(totals[2], 6);
   });
 
   it('grows the first contribution immediately under start-of-year timing', () => {
@@ -74,7 +73,7 @@ describe('simulate — contributions', () => {
       simulate(
         cfg({ contributionMode: 'maxDeductible', currentAge: 33, years: 20 }),
       ),
-      'ppr',
+      'hybrid',
     ).rows;
     expect(rows[0].contributedThisYear).toBe(2000); // age 33
     expect(rows[2].contributedThisYear).toBe(1750); // age 35
@@ -124,7 +123,7 @@ describe('simulate — the reference case from the community thread', () => {
 
   it('accrues IRS benefits matching that band placement', () => {
     // 5 x 400 + 16 x 350 + 9 x 300
-    expect(byId(simulate(reference), 'ppr').final.irsBenefitTotal).toBeCloseTo(
+    expect(byId(simulate(reference), 'hybrid').final.irsBenefitTotal).toBeCloseTo(
       10300,
       6,
     );
@@ -135,14 +134,16 @@ describe('simulate — the reference case from the community thread', () => {
   it('produces gross portfolio values consistent with their compounding', () => {
     const out = simulate(reference);
     expect(byId(out, 'etf').final.grossValue).toBeCloseTo(150019.06, 1);
-    expect(byId(out, 'ppr').final.grossValue).toBeCloseTo(130077.62, 1);
+    expect(byId(out, 'hybrid').final.grossValue).toBeCloseTo(130077.62, 1);
   });
 
   it('taxes the PPR at a flat 8% of the gain on liquidation', () => {
-    const ppr = byId(simulate(reference), 'ppr').final;
-    const gain = ppr.grossValue - ppr.totalContributed;
-    expect(ppr.pprTax).toBeCloseTo(gain * 0.08, 6);
-    expect(ppr.netValue).toBeCloseTo(ppr.grossValue - gain * 0.08, 6);
+    // with no mortgage and the benefit consumed, the hybrid is just a PPR held
+    // to the end, which is what the published comparison measured
+    const held = byId(simulate(reference), 'hybrid').final;
+    const gain = held.grossValue - held.totalContributed;
+    expect(held.pprTax).toBeCloseTo(gain * 0.08, 6);
+    expect(held.netValue).toBeCloseTo(held.grossValue - gain * 0.08, 6);
   });
 
   // DIVERGENCE 2 — FIFO.
@@ -332,14 +333,13 @@ describe('simulate — cash flow is symmetric across scenarios', () => {
   });
 
   it('reports reinvested freed salary per scenario, not from the global flag', () => {
-    // PPR-only ignores reinvestRedemption by design, so it must report zero
-    // even when the toggle is on. Reading the flag instead of the scenario
-    // showed a reinvestment row on a scenario that never reinvests.
+    // Only a scenario that actually reinvests may report freed salary. Reading
+    // the config flag instead of the scenario once showed a reinvestment row on
+    // a scenario that never reinvests.
     const out = simulate(
       cfg({ years: 25, mortgageStartYear: 3, reinvestRedemption: true }),
     );
     expect(byId(out, 'hybrid').final.freedSalaryReinvested).toBeGreaterThan(0);
-    expect(byId(out, 'ppr').final.freedSalaryReinvested).toBe(0);
     expect(byId(out, 'etf').final.freedSalaryReinvested).toBe(0);
   });
 
@@ -401,21 +401,6 @@ describe('simulate — without a mortgage', () => {
     expect(without.netWithBenefits).toBeLessThan(with_.netWithBenefits);
     expect(without.penalisedExit).toBe(true);
     expect(with_.penalisedExit).toBe(false);
-  });
-
-  it('can HELP the PPR-only scenario, which is not a contradiction', () => {
-    // Counter-intuitive but correct: with a mortgage, PPR-only drains the plan
-    // every year and SPENDS the proceeds, destroying the compounding. Without
-    // one, the plan compounds untouched for the whole horizon, and that beats
-    // the penalised exit. The mortgage route only pays off if you reinvest.
-    const without = byId(simulate(noMortgage()), 'ppr').final;
-    const with_ = byId(
-      simulate(cfg({ hasMortgage: true, years: 25, currentAge: 30 })),
-      'ppr',
-    ).final;
-    expect(without.netWithBenefits).toBeGreaterThan(with_.netWithBenefits);
-    // and it is still a bad outcome in absolute terms: penalised and clawed back
-    expect(without.penalisedExit).toBe(true);
   });
 
   it('leaves the pure ETF scenario untouched by the mortgage toggle', () => {
@@ -539,11 +524,13 @@ describe('simulate — fees and drag', () => {
     // measured without a mortgage, so the PPR actually accumulates: with one,
     // the plan is drained every year and its closing balance is zero either way
     const base = { hasMortgage: false, years: 33 } as const;
-    const without = byId(simulate(cfg({ ...base, pprTrackingError: 0 })), 'ppr')
-      .final.netWithBenefits;
+    const without = byId(
+      simulate(cfg({ ...base, pprTrackingError: 0 })),
+      'hybrid',
+    ).final.netWithBenefits;
     const with26 = byId(
       simulate(cfg({ ...base, pprTrackingError: 2.6 })),
-      'ppr',
+      'hybrid',
     ).final.netWithBenefits;
     expect(with26).toBeLessThan(without);
   });

@@ -32,7 +32,6 @@ interface Policy {
 const POLICIES: Policy[] = [
   { id: 'etf', primary: 'etf', reinvests: false },
   { id: 'hybrid', primary: 'ppr', reinvests: true },
-  { id: 'ppr', primary: 'ppr', reinvests: false },
 ];
 
 function labelFor(id: ScenarioId, cfg: SimConfig): string {
@@ -41,8 +40,6 @@ function labelFor(id: ScenarioId, cfg: SimConfig): string {
       return `Só ${cfg.etfName}`;
     case 'hybrid':
       return `Híbrido: ${cfg.pprName} + ${cfg.etfName}`;
-    case 'ppr':
-      return `Só ${cfg.pprName}`;
   }
 }
 
