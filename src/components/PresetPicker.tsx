@@ -90,6 +90,22 @@ export function PresetPicker<P extends EtfPreset | PprPreset>({
             </p>
           )}
 
+          {selected.history.comparableEquity && (
+            <p className="mt-1.5 rounded border-l-2 border-sky-400 bg-sky-50 py-1 pl-2 text-xs leading-relaxed text-slate-700 dark:bg-sky-950/40 dark:text-slate-300">
+              No <strong>mesmo período</strong>, um ETF de ações globais (
+              {selected.history.comparableEquity.label}) fez{' '}
+              <strong className="tnum">
+                {selected.history.comparableEquity.approximate ? '≈' : ''}
+                {formatRate(selected.history.comparableEquity.annualisedPct)} ao
+                ano
+              </strong>
+              {selected.history.comparableEquity.annualisedPct >
+              selected.history.annualisedPct
+                ? ' — mais do que este produto.'
+                : ' — menos do que este produto.'}
+            </p>
+          )}
+
           <button
             type="button"
             onClick={() => onUseHistory(gross)}

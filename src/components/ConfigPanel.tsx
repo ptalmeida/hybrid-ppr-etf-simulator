@@ -74,6 +74,24 @@ export function ConfigPanel({
             onUseHistory={(pprReturn) => onChange({ pprReturn })}
           />
 
+          {(() => {
+            // Comparing two products measured over different windows is the
+            // classic way a mixed fund appears to beat pure equities. Say so.
+            const e = matchEtfPreset(config)?.history;
+            const r = matchPprPreset(config)?.history;
+            if (!e || !r) return null;
+            if (e.from === r.from && e.to === r.to) return null;
+            return (
+              <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                <strong>Períodos diferentes.</strong> A rendibilidade do ETF é
+                medida em {e.window}; a do PPR em {r.window}. Não são
+                comparáveis entre si — janelas que começam depois de uma queda
+                parecem muito melhores. Use a linha «no mesmo período» de cada
+                produto para uma comparação honesta.
+              </p>
+            );
+          })()}
+
           <details className="text-sm">
             <summary className="cursor-pointer text-slate-600 dark:text-slate-400">
               Usar nomes próprios

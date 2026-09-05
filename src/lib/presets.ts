@@ -31,6 +31,21 @@ export interface Preset<K extends keyof SimConfig> {
     window: string;
     /** Years the window covers, used to warn about short samples. */
     years: number;
+    /** Machine-comparable window, so mismatched periods can be detected. */
+    from: string;
+    to: string;
+    /**
+     * What a 100% global equity ETF returned over THIS product's window.
+     *
+     * Without it a reader compares two figures measured over different
+     * periods and concludes the wrong thing — a mixed fund appearing to beat
+     * pure equities is almost always this mistake, not a real result.
+     */
+    comparableEquity?: {
+      annualisedPct: number;
+      label: string;
+      approximate?: boolean;
+    };
     caution?: string;
   };
   sri?: number;
@@ -67,6 +82,8 @@ export const ETF_PRESETS: EtfPreset[] = [
       annualisedPct: 10.84,
       window: '5 anos, até jul 2026',
       years: 5,
+      from: '2021-07',
+      to: '2026-07',
     },
     sri: 4,
     inception: 'jul 2019',
@@ -104,6 +121,8 @@ export const ETF_PRESETS: EtfPreset[] = [
       annualisedPct: 11.26,
       window: '5 anos, até jul 2026',
       years: 5,
+      from: '2021-07',
+      to: '2026-07',
     },
     inception: 'set 2009',
     sources: ['https://www.ishares.com/'],
@@ -119,6 +138,8 @@ export const ETF_PRESETS: EtfPreset[] = [
       annualisedPct: 12.55,
       window: '5 anos, até jul 2026',
       years: 5,
+      from: '2021-07',
+      to: '2026-07',
     },
     sri: 4,
     inception: 'mai 2019',
@@ -134,6 +155,8 @@ export const ETF_PRESETS: EtfPreset[] = [
       annualisedPct: 12.55,
       window: '5 anos, até jul 2026',
       years: 5,
+      from: '2021-07',
+      to: '2026-07',
     },
     sri: 4,
     inception: 'mai 2010',
@@ -150,6 +173,8 @@ export const ETF_PRESETS: EtfPreset[] = [
       annualisedPct: 12.48,
       window: '5 anos, até jul 2026',
       years: 5,
+      from: '2021-07',
+      to: '2026-07',
     },
     inception: 'mar 2012',
     sources: ['https://www.ssga.com/'],
@@ -201,8 +226,15 @@ export const PPR_PRESETS: PprPreset[] = [
       annualisedPct: 12.4,
       window: '2,8 anos, de out 2023 a jul 2026',
       years: 2.8,
+      from: '2023-10',
+      to: '2026-07',
+      comparableEquity: {
+        annualisedPct: 21,
+        label: 'VWCE',
+        approximate: true,
+      },
       caution:
-        'Anualizado a partir do valor cumulativo de +37,95% publicado pela gestora. Menos de três anos, e num período excecionalmente bom para as ações — não serve de previsão para décadas.',
+        'Anualizado a partir do valor cumulativo de +37,95% publicado pela gestora. A janela começa no mínimo de outubro de 2023 e não apanha a queda de 2022, por isso não é comparável com os 5 anos dos ETF acima.',
     },
     sri: 4,
     inception: 'out 2023 (Classe Plus)',
@@ -229,6 +261,12 @@ export const PPR_PRESETS: PprPreset[] = [
       annualisedPct: 3.1,
       window: '5 anos, até jul 2026',
       years: 5,
+      from: '2021-07',
+      to: '2026-07',
+      comparableEquity: {
+        annualisedPct: 10.84,
+        label: 'VWCE',
+      },
       caution:
         'Custos correntes dos ETF subjacentes não divulgados, por isso o custo real é superior ao que aqui está.',
     },
@@ -254,6 +292,12 @@ export const PPR_PRESETS: PprPreset[] = [
       annualisedPct: 4.82,
       window: '5 anos, até jul 2026',
       years: 5,
+      from: '2021-07',
+      to: '2026-07',
+      comparableEquity: {
+        annualisedPct: 10.84,
+        label: 'VWCE',
+      },
     },
     sri: 5,
     sources: ['https://www.optimize.pt/'],
@@ -275,6 +319,12 @@ export const PPR_PRESETS: PprPreset[] = [
       annualisedPct: 3.77,
       window: '5 anos, até jul 2026',
       years: 5,
+      from: '2021-07',
+      to: '2026-07',
+      comparableEquity: {
+        annualisedPct: 10.84,
+        label: 'VWCE',
+      },
       caution: 'Comissão de gestão não confirmada em fonte primária.',
     },
     sri: 5,
@@ -298,6 +348,12 @@ export const PPR_PRESETS: PprPreset[] = [
       annualisedPct: 8.38,
       window: '5 anos, até jul 2026',
       years: 5,
+      from: '2021-07',
+      to: '2026-07',
+      comparableEquity: {
+        annualisedPct: 10.84,
+        label: 'VWCE',
+      },
       caution:
         'Comissões não confirmadas individualmente para este fundo; assumidas iguais às da casa.',
     },
@@ -322,6 +378,12 @@ export const PPR_PRESETS: PprPreset[] = [
       annualisedPct: 1.97,
       window: '5 anos, até jul 2026',
       years: 5,
+      from: '2021-07',
+      to: '2026-07',
+      comparableEquity: {
+        annualisedPct: 10.84,
+        label: 'VWCE',
+      },
       caution:
         'Média de 1070 produtos, a maioria de capital garantido. É o número que mostra o que um PPR escolhido ao acaso costuma render.',
     },

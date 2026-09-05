@@ -98,6 +98,34 @@ essa hipótese coloca o utilizador muito acima da média do mercado.
 | 29 | ABANCA Ciclo de Vida -34 | IM Gestão de Ativos | Fundo de Investimento | 4 | 3,14% |
 | 30 | **PPR SGF Stoik** | Golden SGF SGFP | Fundo de Pensões | 4 | **3,10%** |
 
+### Aviso metodológico: janelas diferentes não se comparam
+
+O Golden SGF PPR ETF publica **+37,95% cumulativo entre out/2023 e jul/2026**, o que anualiza
+para **12,4%/ano**. Isso parece bater a VWCE, que fez 10,84%/ano — mas as janelas são diferentes,
+e a comparação é inválida.
+
+A janela do Golden **começa no mínimo de outubro de 2023 e não apanha a queda de 2022**. A janela
+de 5 anos da VWCE apanha. Sobre o **mesmo período**, usando as rendibilidades de calendário
+publicadas da VWCE (2024: +17,19%; 2025: +22,56%; 2026 até jul: +11,18%):
+
+| out 2023 → jul 2026 | Cumulativo | Anualizado |
+|---|---|---|
+| VWCE — 100% ações globais | ≈ +72% | **≈ 21%/ano** |
+| Golden SGF PPR ETF — 75/22,5/2,5 | +37,95% | **12,4%/ano** |
+
+Ou seja, no mesmo período o ETF de ações rendeu cerca de **9 pontos por ano acima** do PPR. E não é
+só a alocação a explicar: uma carteira 75/22,5/2,5 com ações a ≈21% e obrigações a ≈2% deveria
+render à volta de 16%/ano bruto, contra os ≈13,8% brutos que o Golden entregou. A diferença é
+consistente com o desvio face ao índice já discutido nesta pesquisa.
+
+**Consequência para o simulador**: nenhuma rendibilidade histórica deve ser mostrada sem a sua
+janela, e produtos com janelas diferentes não podem ser postos lado a lado sem aviso. O simulador
+mostra agora, para cada PPR, o que um ETF global fez *no mesmo período*.
+
+(Nota: o valor da VWCE para out–dez de 2023 é estimado, por isso os ≈21% são aproximados. A
+conclusão não depende dessa estimativa — mesmo assumindo 0% nesses dois meses, a VWCE fica
+acima de 19%/ano.)
+
 ### Leituras que importam para os presets
 
 1. **O melhor PPR do país fez 9,11%/ano a 5 anos.** Nenhum chega perto de um ETF do S&P 500 no

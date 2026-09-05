@@ -33,6 +33,34 @@ describe('preset catalogue', () => {
     }
   });
 
+  it('gives every historical figure a machine-comparable window', () => {
+    for (const p of [...ETF_PRESETS, ...PPR_PRESETS]) {
+      if (!p.history) continue;
+      expect(p.history.from).toMatch(/^\d{4}-\d{2}$/);
+      expect(p.history.to).toMatch(/^\d{4}-\d{2}$/);
+      expect(p.history.from < p.history.to).toBe(true);
+    }
+  });
+
+  it('carries a same-window equity comparison wherever the window is unusual', () => {
+    // Golden's window starts at the oct-2023 low and skips the 2022 fall, so
+    // its 12.4% reads as beating a 100% equity fund unless the same-window
+    // figure is shown beside it
+    const golden = PPR_PRESETS.find((p) => p.id === 'golden-etf')!;
+    expect(golden.history!.from).toBe('2023-10');
+    expect(golden.history!.comparableEquity).toBeDefined();
+    expect(
+      golden.history!.comparableEquity!.annualisedPct,
+    ).toBeGreaterThan(golden.history!.annualisedPct);
+  });
+
+  it('gives every PPR a same-window equity comparison', () => {
+    for (const p of PPR_PRESETS) {
+      if (!p.history) continue;
+      expect(p.history.comparableEquity).toBeDefined();
+    }
+  });
+
   it('states the window for every historical figure', () => {
     for (const p of [...ETF_PRESETS, ...PPR_PRESETS]) {
       if (!p.history) continue;
