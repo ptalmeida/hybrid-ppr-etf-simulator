@@ -33,7 +33,7 @@ npm run dev
 Outros comandos:
 
 ```bash
-npm test          # 195 testes da lógica fiscal
+npm test          # 218 testes da lógica fiscal
 npm run build     # build de produção para dist/
 ```
 
@@ -45,6 +45,7 @@ src/lib/       lógica pura, sem React
   tranches.ts  operações FIFO sobre entradas (crescer, resgatar, liquidar)
   engine.ts    o ciclo anual que produz os três cenários
   url.ts       configuração <-> query string
+  fees.ts      motor de comissões: regras com condições, não só percentagens
   waterfall.ts decomposição do resultado, testada contra o cartão
   explain.ts   texto gerado a partir do resultado
 src/components/  apresentação apenas, recebe dados já calculados
@@ -102,6 +103,26 @@ modela cada camada em separado:
 
 Do lado do ETF: TER, custódia em percentagem, comissão de compra (percentual e
 fixa), comissão de venda e custos anuais fixos.
+
+### Comissões irregulares
+
+Os campos acima cobrem o caso comum. As comissões que não cabem num número —
+escalões por saldo, degraus por antiguidade, promoções de duração limitada,
+comissões de performance, valores fixos em euros — são descritas como regras em
+`extraFees`, com condições (`minBalance`, `maxBalance`, `minAgeYears`,
+`maxAgeYears`, `fromYear`, `toYear`, `hurdlePct`). O motor aplica os dois pelo
+mesmo caminho: os campos simples são convertidos em regras antes de qualquer
+cálculo.
+
+Exemplo real — a comissão de gestão da Golden SGF muda de classe conforme o
+saldo:
+
+```ts
+extraFees: [
+  { label: 'Classe Start', product: 'ppr', basis: 'annual', pct: 1, maxBalance: 10000 },
+  { label: 'Classe Plus', product: 'ppr', basis: 'annual', pct: 0.75, minBalance: 10000 },
+]
+```
 
 A dedução de IRS incide sobre o valor **entregue**, não sobre o que sobra depois
 da comissão de subscrição.

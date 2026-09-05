@@ -17,6 +17,13 @@ import {
   PPR_MIN_TRANCHE_AGE,
 } from './tax';
 import {
+  annualFixed,
+  annualRatePct,
+  chargeFor,
+  feeSchedule,
+  type FeeRule,
+} from './fees';
+import {
   chargeFixedCost,
   growTranches,
   liquidate,
@@ -116,25 +123,22 @@ function valueInHand(
 function applyEntryFee(
   amount: number,
   product: 'etf' | 'ppr',
-  cfg: SimConfig,
+  rules: FeeRule[],
+  year: number,
+  balance: number,
 ): number {
   if (amount <= 0) return 0;
-  const net =
-    product === 'ppr'
-      ? amount * (1 - cfg.pprSubscriptionFee / 100)
-      : amount * (1 - cfg.etfBuyFee / 100) - cfg.etfBuyFeeFixed;
-  return Math.max(0, net);
+  const charge = chargeFor(rules, 'contribution', {
+    product,
+    year,
+    balance,
+    amount,
+  });
+  return Math.max(0, amount - charge);
 }
 
 function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
-  // Annual drag stacks: every percentage charged on assets, each year.
-  const etfNetRate = cfg.etfReturn - cfg.etfFee - cfg.etfCustodyFee;
-  const pprNetRate =
-    cfg.pprReturn -
-    cfg.pprFee -
-    cfg.pprDepositaryFee -
-    cfg.pprUnderlyingFee -
-    cfg.pprTrackingError;
+  const rules = feeSchedule(cfg);
   const annualInstalments = cfg.monthlyInstalment * 12;
 
   // Last year the mortgage is still running. Instalments only fall due inside
@@ -206,22 +210,29 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
    * One year of growth plus the flat broker cost. Called either before or
    * after the year's contribution, depending on `contributionTiming`.
    */
-  const applyGrowth = () => {
-    // the percentage charges are the gap between gross and net growth
-    const etfBefore = balanceOf(tranches, 'etf');
-    const pprBefore = balanceOf(tranches, 'ppr');
-    feesPaid +=
-      (etfBefore * (cfg.etfFee + cfg.etfCustodyFee)) / 100 +
-      (pprBefore *
-        (cfg.pprFee + cfg.pprDepositaryFee + cfg.pprUnderlyingFee)) /
-        100;
+  const applyGrowth = (year: number) => {
+    for (const product of ['etf', 'ppr'] as const) {
+      const before = balanceOf(tranches, product);
+      const ctx = { product, year, balance: before, amount: before };
 
-    tranches = growTranches(tranches, 'etf', etfNetRate);
-    tranches = growTranches(tranches, 'ppr', pprNetRate);
+      // Rates are read from the balance each year, so a fee that tiers by
+      // balance switches band on its own as the plan grows.
+      const ratePct = annualRatePct(rules, ctx);
+      const grossReturn = product === 'etf' ? cfg.etfReturn : cfg.pprReturn;
 
-    const beforeFlat = balanceOf(tranches, 'etf');
-    tranches = chargeFixedCost(tranches, 'etf', cfg.etfAnnualCost);
-    feesPaid += beforeFlat - balanceOf(tranches, 'etf');
+      feesPaid += (before * ratePct) / 100;
+      tranches = growTranches(tranches, product, grossReturn - ratePct);
+
+      const gain = balanceOf(tranches, product) - before;
+      const perf = chargeFor(rules, 'performance', { ...ctx, gain });
+      const flat = annualFixed(rules, ctx);
+      const lump = perf + flat;
+      if (lump > 0) {
+        const beforeLump = balanceOf(tranches, product);
+        tranches = chargeFixedCost(tranches, product, lump);
+        feesPaid += beforeLump - balanceOf(tranches, product);
+      }
+    }
   };
 
   for (let year = 1; year <= cfg.years; year++) {
@@ -229,7 +240,7 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
 
     // 1. with end-of-year contributions, existing money grows first and this
     //    year's deposit earns nothing until next year
-    if (cfg.contributionTiming === 'end') applyGrowth();
+    if (cfg.contributionTiming === 'end') applyGrowth(year);
 
     // 2. this year's contribution out of pocket
     //
@@ -262,7 +273,13 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
     pendingPprBenefit = 0;
 
     if (intoPrimary > 0) {
-      const invested = applyEntryFee(intoPrimary, destination, cfg);
+      const invested = applyEntryFee(
+        intoPrimary,
+        destination,
+        rules,
+        year,
+        balanceOf(tranches, destination),
+      );
       feesPaid += intoPrimary - invested;
       if (invested > 0) {
         tranches.push({
@@ -294,7 +311,13 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       }
 
       if (policy.reinvests && cfg.benefitDestination === 'etf') {
-        const invested = applyEntryFee(benefitThisYear, 'etf', cfg);
+        const invested = applyEntryFee(
+          benefitThisYear,
+          'etf',
+          rules,
+          year,
+          balanceOf(tranches, 'etf'),
+        );
         feesPaid += benefitThisYear - invested;
         tranches.push({
           yearDeposited: year,
@@ -310,7 +333,7 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
 
     // 4. with start-of-year contributions, this year's deposit and the IRS
     //    benefit are already in the market and grow immediately
-    if (cfg.contributionTiming === 'start') applyGrowth();
+    if (cfg.contributionTiming === 'start') applyGrowth(year);
 
     // 5. redeem PPR tranches to pay mortgage instalments
     let redeemedThisYear = 0;
@@ -328,8 +351,7 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
         // the plan's own first entrega, from the full history. Redeeming does
         // not rejuvenate the contract, so this must not come from what is left.
         firstEntregaYear: entregas[0].year,
-        redemptionFeePct: cfg.pprRedemptionFee,
-        redemptionFeeYears: cfg.pprRedemptionFeeYears,
+        feeRules: rules,
       });
       tranches = result.remaining;
       redeemedThisYear = result.grossRedeemed;
@@ -376,7 +398,13 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       }
 
       if (policy.reinvests && cfg.reinvestRedemption && result.netProceeds > 0) {
-        const invested = applyEntryFee(result.netProceeds, 'etf', cfg);
+        const invested = applyEntryFee(
+          result.netProceeds,
+          'etf',
+          rules,
+          year,
+          balanceOf(tranches, 'etf'),
+        );
         feesPaid += result.netProceeds - invested;
         tranches.push({
           yearDeposited: year,
@@ -391,7 +419,8 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
     const snapshot = liquidate(tranches, year, {
       etfTaxMode: cfg.etfTaxMode,
       marginalRate: cfg.marginalRate,
-      etfSellFeePct: cfg.etfSellFee,
+      feeRules: rules,
+      finalYear: year,
     });
 
     rows.push({
@@ -420,7 +449,8 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
     etfTaxMode: cfg.etfTaxMode,
     marginalRate: cfg.marginalRate,
     pprRegime: penalisedExit ? 'penalised' : 'legal',
-    etfSellFeePct: cfg.etfSellFee,
+    feeRules: rules,
+    finalYear: cfg.years,
   });
   feesPaid += final.fee;
 

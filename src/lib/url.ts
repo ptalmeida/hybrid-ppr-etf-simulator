@@ -12,7 +12,7 @@ import { BOUNDS, DEFAULT_CONFIG, MAX_NAME_LENGTH } from './defaults';
  * Short, stable query keys. Never rename one: an old shared link must keep
  * working. To retire a field, stop writing it and keep parsing it.
  */
-const KEYS: Record<keyof SimConfig, string> = {
+const KEYS: Record<Exclude<keyof SimConfig, 'extraFees'>, string> = {
   currentAge: 'age',
   contributionMode: 'cmode',
   contributionTiming: 'ctime',
@@ -56,10 +56,10 @@ const AFTER_MORTGAGE: AfterMortgage[] = ['ppr', 'etf', 'stop'];
 const ETF_TAX_MODES: EtfTaxMode[] = ['ladder', 'flat28', 'englobamento'];
 const BENEFIT_DESTINATIONS: BenefitDestination[] = ['etf', 'ppr', 'consumed'];
 
-function clampNumber(field: keyof SimConfig, raw: string, fallback: number) {
+function clampNumber(field: string, raw: string, fallback: number) {
   const n = Number(raw);
   if (!Number.isFinite(n)) return fallback;
-  const bounds = BOUNDS[field as string];
+  const bounds = BOUNDS[field];
   if (!bounds) return n;
   return Math.min(bounds[1], Math.max(bounds[0], n));
 }
@@ -76,7 +76,7 @@ function cleanName(raw: string, fallback: string): string {
 /** Serialise only what differs from the defaults, so links stay readable. */
 export function serialiseConfig(cfg: SimConfig): string {
   const params = new URLSearchParams();
-  for (const field of Object.keys(KEYS) as (keyof SimConfig)[]) {
+  for (const field of Object.keys(KEYS) as (keyof typeof KEYS)[]) {
     const value = cfg[field];
     if (value === DEFAULT_CONFIG[field]) continue;
     params.set(
@@ -96,7 +96,7 @@ export function parseConfig(query: string): SimConfig {
     return { ...DEFAULT_CONFIG };
   }
 
-  const read = (field: keyof SimConfig): string | null => {
+  const read = (field: keyof typeof KEYS): string | null => {
     try {
       return params.get(KEYS[field]);
     } catch {
@@ -104,13 +104,13 @@ export function parseConfig(query: string): SimConfig {
     }
   };
 
-  const num = (field: keyof SimConfig): number => {
+  const num = (field: keyof typeof KEYS): number => {
     const raw = read(field);
     const fallback = DEFAULT_CONFIG[field] as number;
     return raw === null ? fallback : clampNumber(field, raw, fallback);
   };
 
-  const bool = (field: keyof SimConfig): boolean => {
+  const bool = (field: keyof typeof KEYS): boolean => {
     const raw = read(field);
     if (raw === null) return DEFAULT_CONFIG[field] as boolean;
     return raw === '1' || raw === 'true';

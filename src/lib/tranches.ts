@@ -1,4 +1,5 @@
 import type { BracketSlice, EtfTaxMode, Product, Tranche } from './types';
+import { chargeFor, type FeeRule } from './fees';
 import {
   etfBracketLabel,
   etfRateForAge,
@@ -64,10 +65,8 @@ export interface RedeemOptions {
    * plan is drained, which produces a spurious five-year on/off cycle.
    */
   firstEntregaYear: number;
-  /** % of the redeemed amount charged by the gestora on young units. */
-  redemptionFeePct?: number;
-  /** Unit age below which `redemptionFeePct` applies. */
-  redemptionFeeYears?: number;
+  /** The product's fee schedule; redemption rules are read from it. */
+  feeRules?: FeeRule[];
 }
 
 /** One tranche consumed by a redemption. Feeds the clawback maths and the ledger. */
@@ -146,8 +145,10 @@ export function redeemPprFifo(
     t.product === 'ppr' &&
     (wholePlanEligible || currentYear - t.yearDeposited >= PPR_MIN_TRANCHE_AGE);
 
-  const feePct = (opts.redemptionFeePct ?? 0) / 100;
-  const feeMaxAge = opts.redemptionFeeYears ?? 0;
+  const rules = opts.feeRules ?? [];
+  const pprBalance = tranches
+    .filter((t) => t.product === 'ppr')
+    .reduce((sum, t) => sum + t.value, 0);
 
   let netStillNeeded = netTarget;
   let grossRedeemed = 0;
@@ -167,7 +168,14 @@ export function redeemPprFifo(
     // tranche yields `netPerGross` euros of spendable cash. Invert that to
     // find the gross needed to cover what is still owed on the instalments.
     const profitShare = Math.max(0, (t.value - t.principal) / t.value);
-    const sliceFeePct = currentYear - t.yearDeposited < feeMaxAge ? feePct : 0;
+    // charge on one euro of this tranche, so the gross-up below stays exact
+    const sliceFeePct = chargeFor(rules, 'redemption', {
+      product: 'ppr',
+      year: currentYear,
+      balance: pprBalance,
+      amount: 1,
+      ageYears: currentYear - t.yearDeposited,
+    });
     const netPerGross =
       1 - PPR_LEGAL_EFFECTIVE_RATE * profitShare - sliceFeePct;
     const grossNeeded =
@@ -216,8 +224,10 @@ export function redeemPprFifo(
 export interface LiquidateOptions {
   etfTaxMode: EtfTaxMode;
   marginalRate: number;
-  /** % of the ETF sale taken by the broker. */
-  etfSellFeePct?: number;
+  /** The fee schedule; exit rules are read from it. */
+  feeRules?: FeeRule[];
+  /** Simulation year of this liquidation, for year-scoped rules. */
+  finalYear?: number;
   /**
    * How the PPR is cashed out at the end of the horizon.
    *
@@ -248,7 +258,16 @@ export function liquidate(
   finalYear: number,
   opts: LiquidateOptions,
 ): LiquidateResult {
-  const sellFeePct = (opts.etfSellFeePct ?? 0) / 100;
+  const rules = opts.feeRules ?? [];
+  const etfBalance = tranches
+    .filter((t) => t.product === 'etf')
+    .reduce((sum, t) => sum + t.value, 0);
+  const sellFeePct = chargeFor(rules, 'exit', {
+    product: 'etf',
+    year: opts.finalYear ?? finalYear,
+    balance: etfBalance,
+    amount: 1,
+  });
   let gross = 0;
   let etfTax = 0;
   let pprTax = 0;

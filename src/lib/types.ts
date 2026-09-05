@@ -1,3 +1,5 @@
+import type { FeeRule } from './fees';
+
 export type Product = 'etf' | 'ppr';
 export type ScenarioId = 'etf' | 'hybrid';
 export type ContributionMode = 'fixed' | 'maxDeductible';
@@ -55,6 +57,12 @@ export interface SimConfig {
   redeemYoungEntregas: boolean;
   irsBandsEnabled: boolean;
   irsBenefitCap: number;
+  /**
+   * Irregular charges the flat fields above cannot express: tiered by balance,
+   * stepped by holding period, limited to the first years, performance-based.
+   * Presets populate this so the user never has to.
+   */
+  extraFees?: FeeRule[];
   logScale: boolean;
   etfName: string;
   pprName: string;
