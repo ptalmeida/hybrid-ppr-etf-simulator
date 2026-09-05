@@ -27,7 +27,7 @@ export interface SimConfig {
   reinvestRedemption: boolean;
   etfTaxMode: EtfTaxMode;
   marginalRate: number;
-  use35Rule: boolean;
+  redeemYoungEntregas: boolean;
   irsBandsEnabled: boolean;
   irsBenefitCap: number;
   logScale: boolean;

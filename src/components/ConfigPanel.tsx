@@ -220,9 +220,9 @@ export function ConfigPanel({
                     A última entrega ao {config.pprName} que ainda consegue sair
                     pela alínea g) é a do{' '}
                     <strong>ano {lastUsefulPprYear}</strong>
-                    {config.use35Rule
-                      ? ' — o último ano do crédito, porque pela regra dos 35% o plano inteiro já é resgatável.'
-                      : ' — cinco anos antes do fim do crédito, porque sem a regra dos 35% cada entrega tem de fazer cinco anos.'}
+                    {config.redeemYoungEntregas
+                      ? ' — o último ano do crédito, mas as entregas com menos de cinco anos devolvem a dedução de IRS majorada.'
+                      : ' — cinco anos antes do fim do crédito, porque cada entrega tem de ter cinco anos para o benefício sobreviver.'}
                   </>
                 )
               }

@@ -19,7 +19,7 @@ describe('serialiseConfig / parseConfig', () => {
       benefitDestination: 'ppr' as const,
       reinvestRedemption: false,
       etfTaxMode: 'englobamento' as const,
-      use35Rule: false,
+      redeemYoungEntregas: true,
       irsBandsEnabled: false,
       etfName: 'VWCE',
       pprName: 'Golden SGF',

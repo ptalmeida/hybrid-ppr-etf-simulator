@@ -41,7 +41,13 @@ export function chargeFixedCost(
 }
 
 export interface RedeemOptions {
-  use35Rule: boolean;
+  /**
+   * Allow redeeming entregas younger than five years under art. 4.º/3.
+   *
+   * Legally possible when the 35% test passes, but EBF art. 21.º/4 then claws
+   * back that entrega's IRS deduction, so the caller must account for it.
+   */
+  redeemYoungEntregas: boolean;
   /**
    * Share of total entregas made in the first half of the contract's life.
    * Only consulted when use35Rule is true. Defaults to 0.5, the value a
@@ -60,11 +66,21 @@ export interface RedeemOptions {
   firstEntregaYear: number;
 }
 
+/** One tranche consumed by a redemption, for the caller's clawback maths. */
+export interface RedeemedSlice {
+  yearDeposited: number;
+  /** Whole years between the entrega and this redemption. */
+  ageYears: number;
+  /** Share of that tranche's remaining value taken, 0..1. */
+  fraction: number;
+}
+
 export interface RedeemResult {
   remaining: Tranche[];
   grossRedeemed: number;
   tax: number;
   netProceeds: number;
+  slices: RedeemedSlice[];
 }
 
 /**
@@ -92,13 +108,19 @@ export function redeemPprFifo(
   opts: RedeemOptions,
 ): RedeemResult {
   if (netTarget <= 0) {
-    return { remaining: tranches, grossRedeemed: 0, tax: 0, netProceeds: 0 };
+    return {
+      remaining: tranches,
+      grossRedeemed: 0,
+      tax: 0,
+      netProceeds: 0,
+      slices: [],
+    };
   }
 
   const firstHalfShare = opts.firstHalfShare ?? 0.5;
 
   const wholePlanEligible =
-    opts.use35Rule &&
+    opts.redeemYoungEntregas &&
     firstHalfShare >= PPR_FIRST_HALF_THRESHOLD &&
     currentYear - opts.firstEntregaYear >= PPR_MIN_TRANCHE_AGE;
 
@@ -110,6 +132,7 @@ export function redeemPprFifo(
   let grossRedeemed = 0;
   let tax = 0;
   const remaining: Tranche[] = [];
+  const slices: RedeemedSlice[] = [];
 
   // tranches are held oldest-first, so a straight walk is FIFO
   for (const t of tranches) {
@@ -133,6 +156,11 @@ export function redeemPprFifo(
     grossRedeemed += take;
     tax += takeTax;
     netStillNeeded -= take - takeTax;
+    slices.push({
+      yearDeposited: t.yearDeposited,
+      ageYears: currentYear - t.yearDeposited,
+      fraction: take / t.value,
+    });
 
     if (take < t.value) {
       remaining.push({
@@ -148,6 +176,7 @@ export function redeemPprFifo(
     grossRedeemed,
     tax,
     netProceeds: grossRedeemed - tax,
+    slices,
   };
 }
 

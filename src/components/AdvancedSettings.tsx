@@ -117,11 +117,11 @@ export function AdvancedSettings({ config, onChange }: Props) {
           <hr className="border-slate-200 dark:border-slate-800" />
 
           <ToggleField
-            id="use35Rule"
-            label="Aplicar a regra dos 35%"
-            value={config.use35Rule}
-            onChange={(use35Rule) => onChange({ use35Rule })}
-            hint="Art. 4.º/3 do DL 158/2002: passados 5 anos sobre a PRIMEIRA entrega pode resgatar a totalidade do PPR, desde que as entregas da primeira metade do contrato representem pelo menos 35% do total. Com entregas anuais constantes essa fração é sempre 50%, pelo que a condição se verifica. Desligue para exigir que cada entrega tenha 5 anos (art. 4.º/2)."
+            id="redeemYoungEntregas"
+            label="Resgatar também entregas com menos de 5 anos"
+            value={config.redeemYoungEntregas}
+            onChange={(redeemYoungEntregas) => onChange({ redeemYoungEntregas })}
+            hint="O art. 4.º/3 do DL 158/2002 permite-o (regra dos 35%), mas o art. 21.º/4 do EBF é avaliado à parte e exige cinco anos sobre a RESPETIVA entrega — «e», não «ou». Resgatar uma entrega mais nova devolve a dedução dessa entrega, majorada em 10% por cada ano. Na prática as gestoras também só aceitam montantes entregues há mais de cinco anos. Ligue apenas para ver quanto custa a tentativa."
           />
           <ToggleField
             id="irsBandsEnabled"
@@ -169,9 +169,19 @@ export function AdvancedSettings({ config, onChange }: Props) {
               devolução dos benefícios recebidos majorados em 10% por cada ano.
             </p>
             <p>
-              <strong>Devolução do benefício</strong> — não há devolução quando o
-              resgate é feito nas condições legais e pelo menos 5 anos após a
-              entrega. Todos os resgates simulados cumprem as duas condições.
+              <strong>Devolução do benefício</strong> — art. 21.º/4 do EBF. A
+              dedução só sobrevive se tiverem decorrido pelo menos 5 anos sobre
+              a <em>respetiva</em> entrega <em>e</em> ocorrer uma das situações
+              da lei. As duas condições são avaliadas em separado do DL
+              158/2002: um resgate pode ser permitido e mesmo assim custar a
+              devolução do benefício, majorado em 10% por cada ano.
+            </p>
+            <p>
+              <strong>Como é feito o pedido</strong> — o reembolso é entregue
+              diretamente à instituição de crédito, nunca ao participante, e o
+              pedido deve ser apresentado com pelo menos 10 dias úteis de
+              antecedência sobre o vencimento da prestação. A gestora não pode
+              cobrar comissões pelo processamento deste reembolso.
             </p>
           </div>
         </div>

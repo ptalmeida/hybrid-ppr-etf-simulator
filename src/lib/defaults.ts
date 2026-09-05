@@ -21,7 +21,7 @@ export const DEFAULT_CONFIG: SimConfig = {
   reinvestRedemption: true,
   etfTaxMode: 'ladder',
   marginalRate: 35,
-  use35Rule: true,
+  redeemYoungEntregas: false,
   irsBandsEnabled: true,
   irsBenefitCap: 400,
   logScale: false,

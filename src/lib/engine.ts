@@ -125,6 +125,12 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
    * balance stranded — redeemable only outside legal conditions, at 21.5% /
    * 17.2% / 8.6% plus the benefit clawback.
    */
+  /**
+   * Last year a PPR entrega can still reach alínea g). Contributing after this
+   * buys a deduction that will be handed back on redemption.
+   */
+  const pprCutoffYear = lastUsefulPprYear(cfg);
+
   const ageAtEnd = cfg.currentAge + cfg.years - 1;
   const mortgageStillRunningAtEnd =
     mortgageEndYear !== null && mortgageEndYear >= cfg.years;
@@ -154,6 +160,8 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
   let mortgagePaid = 0;
   let benefitTotal = 0;
   let taxPaid = 0;
+  /** IRS deductions handed back for redeeming entregas younger than 5 years. */
+  let redemptionClawback = 0;
   /** Benefit earned last year, paid out this year and added to the PPR. */
   let pendingPprBenefit = 0;
 
@@ -178,14 +186,17 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
 
     // 2. this year's contribution out of pocket
     //
-    // Once the mortgage is settled, alínea g) is gone. Contributing to the PPR
-    // past that point buys a deduction the participant may not be able to keep,
-    // so `afterMortgage` decides what happens instead. 'stop' applies to every
-    // scenario, otherwise they would stop costing the same.
-    const mortgageOver = mortgageEndYear !== null && year > mortgageEndYear;
-    const stopped = mortgageOver && cfg.afterMortgage === 'stop';
+    // The PPR window closes five years BEFORE the mortgage does, not with it:
+    // an entrega must be five years old for EBF art. 21.º/4 to let the
+    // deduction survive, so anything paid in later than that can never get out
+    // through alínea g). `afterMortgage` decides what happens from then on.
+    // 'stop' applies to every scenario, otherwise they stop costing the same.
+    const pprWindowClosed = pprCutoffYear !== null && year > pprCutoffYear;
+    const stopped = pprWindowClosed && cfg.afterMortgage === 'stop';
     const divertToEtf =
-      mortgageOver && cfg.afterMortgage === 'etf' && policy.primary === 'ppr';
+      pprWindowClosed &&
+      cfg.afterMortgage === 'etf' &&
+      policy.primary === 'ppr';
 
     const contribution = stopped
       ? 0
@@ -253,7 +264,7 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       entregas.length > 0
     ) {
       const result = redeemPprFifo(tranches, year, annualInstalments, {
-        use35Rule: cfg.use35Rule,
+        redeemYoungEntregas: cfg.redeemYoungEntregas,
         firstHalfShare: firstHalfShare(entregas, year),
         // the plan's own first entrega, from the full history. Redeeming does
         // not rejuvenate the contract, so this must not come from what is left.
@@ -264,6 +275,20 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       // only the NET proceeds can settle an instalment; the tax is withheld
       mortgagePaid += result.netProceeds;
       taxPaid += result.tax;
+
+      // EBF art. 21.º/4 is assessed independently of DL 158/2002 art. 4.º.
+      // Redeeming in legal conditions is not enough: the deduction survives
+      // only if five years have ALSO passed since that particular entrega
+      // ("e", not "ou"). Redeeming a young one hands the benefit back,
+      // majorado 10% por cada ano decorrido since it was claimed.
+      for (const slice of result.slices) {
+        if (slice.ageYears >= PPR_MIN_TRANCHE_AGE) continue;
+        const claimed = benefitYears.find((b) => b.year === slice.yearDeposited);
+        if (!claimed) continue;
+        const returned = claimed.amount * slice.fraction;
+        redemptionClawback +=
+          returned * (1 + CLAWBACK_MAJORATION_PER_YEAR * slice.ageYears);
+      }
 
       if (policy.reinvests && cfg.reinvestRedemption && result.netProceeds > 0) {
         tranches.push({
@@ -311,12 +336,14 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
 
   // EBF art. 21.º: redeeming outside legal conditions voids the deduction.
   // Every euro deducted goes back, majorado em 10% por cada ano decorrido.
-  const benefitClawback = penalisedExit
+  const exitClawback = penalisedExit
     ? benefitYears.reduce(
-        (sum, b) => sum + b.amount * (1 + CLAWBACK_MAJORATION_PER_YEAR * (cfg.years - b.year)),
+        (sum, b) =>
+          sum + b.amount * (1 + CLAWBACK_MAJORATION_PER_YEAR * (cfg.years - b.year)),
         0,
       )
     : 0;
+  const benefitClawback = exitClawback + redemptionClawback;
 
   // Mortgage instalments falling due inside the horizon. Identical for every
   // scenario, which is what makes the comparison fair: the household owes the
@@ -409,7 +436,9 @@ export function simulate(cfg: SimConfig): SimOutput {
 function lastUsefulPprYear(cfg: SimConfig): number | null {
   if (!cfg.hasMortgage) return null;
   const mortgageEnd = cfg.mortgageStartYear + cfg.mortgageYears - 1;
-  const last = cfg.use35Rule ? mortgageEnd : mortgageEnd - PPR_MIN_TRANCHE_AGE;
+  const last = cfg.redeemYoungEntregas
+    ? mortgageEnd
+    : mortgageEnd - PPR_MIN_TRANCHE_AGE;
   return last >= 1 ? last : null;
 }
 

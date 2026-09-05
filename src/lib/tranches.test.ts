@@ -60,7 +60,7 @@ describe('redeemPprFifo', () => {
   it('redeems the oldest eligible tranche first', () => {
     const tranches = [ppr(1, 1000, 2000), ppr(2, 1000, 1500)];
     const r = redeemPprFifo(tranches, 10, 2000, {
-      use35Rule: false,
+      redeemYoungEntregas: false,
       firstEntregaYear: 1,
     });
     // the year-1 tranche is consumed entirely before the year-2 one is touched
@@ -72,7 +72,7 @@ describe('redeemPprFifo', () => {
     // Only net cash can pay an instalment. Tranche is half profit, so each
     // gross euro yields 1 - 0.08*0.5 = 0.96 net: 500 net needs 520.83 gross.
     const r = redeemPprFifo([ppr(1, 1000, 2000)], 10, 500, {
-      use35Rule: false,
+      redeemYoungEntregas: false,
       firstEntregaYear: 1,
     });
     expect(r.netProceeds).toBeCloseTo(500, 10);
@@ -82,7 +82,7 @@ describe('redeemPprFifo', () => {
 
   it('spills into the next tranche when the first cannot cover the target', () => {
     const r = redeemPprFifo([ppr(1, 1000, 2000), ppr(2, 1000, 1500)], 10, 2000, {
-      use35Rule: false,
+      redeemYoungEntregas: false,
       firstEntregaYear: 1,
     });
     // first tranche yields 2000 - 80 = 1920 net, leaving 80 to find
@@ -92,7 +92,7 @@ describe('redeemPprFifo', () => {
 
   it('taxes 8% of the profit portion only', () => {
     const r = redeemPprFifo([ppr(1, 1000, 2000)], 10, 5000, {
-      use35Rule: false,
+      redeemYoungEntregas: false,
       firstEntregaYear: 1,
     });
     // profit 1000 => tax 80 => net 1920
@@ -102,7 +102,7 @@ describe('redeemPprFifo', () => {
 
   it('partially redeems a tranche and leaves the remainder invested', () => {
     const r = redeemPprFifo([ppr(1, 1000, 2000)], 10, 500, {
-      use35Rule: false,
+      redeemYoungEntregas: false,
       firstEntregaYear: 1,
     });
     const taken = r.grossRedeemed;
@@ -119,7 +119,7 @@ describe('redeemPprFifo', () => {
     // year 1 and fully drained stays redeemable: the surviving tranche is
     // young, but the CONTRACT is not.
     const r = redeemPprFifo([ppr(12, 1000, 1000)], 13, 5000, {
-      use35Rule: true,
+      redeemYoungEntregas: true,
       firstEntregaYear: 1,
     });
     expect(r.netProceeds).toBeGreaterThan(0);
@@ -127,13 +127,13 @@ describe('redeemPprFifo', () => {
 
   it('excludes tranches younger than five years under the per-entrega rule', () => {
     // current year 5, tranche from year 2 is 3 years old
-    const r = redeemPprFifo([ppr(2, 1000, 1000)], 5, 5000, { use35Rule: false, firstEntregaYear: 1 });
+    const r = redeemPprFifo([ppr(2, 1000, 1000)], 5, 5000, { redeemYoungEntregas: false, firstEntregaYear: 1 });
     expect(r.grossRedeemed).toBe(0);
     expect(r.remaining).toHaveLength(1);
   });
 
   it('includes a tranche exactly five years old', () => {
-    const r = redeemPprFifo([ppr(1, 1000, 1000)], 6, 5000, { use35Rule: false, firstEntregaYear: 1 });
+    const r = redeemPprFifo([ppr(1, 1000, 1000)], 6, 5000, { redeemYoungEntregas: false, firstEntregaYear: 1 });
     expect(r.grossRedeemed).toBeCloseTo(1000, 10);
   });
 
@@ -141,7 +141,7 @@ describe('redeemPprFifo', () => {
     // year 6, first entrega in year 1 => 5 years elapsed. A year-5 tranche is
     // only 1 year old but is still eligible under art. 4.º/3.
     const r = redeemPprFifo([ppr(1, 1000, 1000), ppr(5, 1000, 1000)], 6, 5000, {
-      use35Rule: true,
+      redeemYoungEntregas: true,
       firstEntregaYear: 1,
     });
     expect(r.grossRedeemed).toBeCloseTo(2000, 10);
@@ -150,7 +150,7 @@ describe('redeemPprFifo', () => {
 
   it('falls back to per-entrega when the first-half share is below 35%', () => {
     const r = redeemPprFifo([ppr(9, 1000, 1000)], 10, 5000, {
-      use35Rule: true,
+      redeemYoungEntregas: true,
       firstHalfShare: 0,
       firstEntregaYear: 9,
     });
@@ -159,7 +159,7 @@ describe('redeemPprFifo', () => {
 
   it('never redeems more than the balance', () => {
     const r = redeemPprFifo([ppr(1, 1000, 1200)], 10, 999999, {
-      use35Rule: false,
+      redeemYoungEntregas: false,
       firstEntregaYear: 1,
     });
     expect(r.grossRedeemed).toBeCloseTo(1200, 10);
@@ -167,7 +167,7 @@ describe('redeemPprFifo', () => {
   });
 
   it('redeems nothing when the cap is zero', () => {
-    const r = redeemPprFifo([ppr(1, 1000, 1200)], 10, 0, { use35Rule: false, firstEntregaYear: 1 });
+    const r = redeemPprFifo([ppr(1, 1000, 1200)], 10, 0, { redeemYoungEntregas: false, firstEntregaYear: 1 });
     expect(r.grossRedeemed).toBe(0);
     expect(r.remaining).toHaveLength(1);
   });

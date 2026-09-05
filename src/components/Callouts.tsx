@@ -142,26 +142,34 @@ export function LegalityNote({ pprName }: { pprName: string }) {
       <Info size={18} className="mt-0.5 shrink-0 text-slate-500" />
       <div className="space-y-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
         <p className="font-semibold">
-          A regra dos 35% não impede esta estratégia
+          Cada entrega tem de ter cinco anos. Não dá para depositar e resgatar a
+          seguir.
         </p>
         <p>
-          O art. 4.º/2 do DL 158/2002 permite resgatar cada entrega assim que{' '}
-          <em>essa</em> entrega faz cinco anos. Isto vale sempre, independentemente
-          da regra dos 35%.
+          Duas regras diferentes têm de se verificar ao mesmo tempo, e são
+          avaliadas de forma independente. O <strong>DL 158/2002</strong> diz se
+          o resgate é <em>permitido</em>; o <strong>EBF</strong> diz se fica com
+          a dedução de IRS.
         </p>
         <p>
-          O art. 4.º/3 é um acréscimo, não um requisito: se as entregas feitas na
-          primeira metade da vigência do contrato representarem pelo menos 35% do
-          total, pode resgatar a <strong>totalidade</strong> cinco anos após a
-          primeira entrega, sem esperar cinco anos por cada reforço.
+          O art. 4.º/3 do DL 158/2002 — a regra dos 35% — chega a permitir
+          resgatar a totalidade cinco anos após a primeira entrega. Mas o art.
+          21.º/4 do EBF exige que tenham decorrido cinco anos{' '}
+          <strong>sobre a respetiva entrega</strong> <em>e</em> que ocorra uma
+          das situações da lei. É «e», não «ou». Resgatar uma entrega mais nova
+          continua a ser legal, mas devolve a dedução dessa entrega majorada em
+          10% por cada ano — o que anula o motivo de a ter feito.
         </p>
         <p>
-          A vigência conta-se da primeira entrega até ao momento do resgate. Com
-          entregas anuais regulares essa fração ronda os 50%, pelo que a condição
-          se verifica com folga. Só falha se abrir o {pprName} com um valor
-          simbólico e concentrar as entregas perto do fim — nesse caso continua a
-          poder resgatar, mas entrega a entrega, à medida que cada uma faz cinco
-          anos.
+          Na prática as gestoras aplicam diretamente o critério mais exigente:
+          «só podem ser usados montantes entregues há mais de cinco anos». Por
+          isso o {pprName} nunca fica vazio — carrega sempre as últimas cinco
+          entregas, à espera de amadurecer.
+        </p>
+        <p>
+          Consequência prática: a última entrega que ainda consegue sair pela
+          alínea g) é a de <strong>cinco anos antes do fim do crédito</strong>,
+          não a do último ano.
         </p>
       </div>
     </div>
