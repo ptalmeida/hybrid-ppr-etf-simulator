@@ -33,7 +33,7 @@ npm run dev
 Outros comandos:
 
 ```bash
-npm test          # 179 testes da lógica fiscal
+npm test          # 184 testes da lógica fiscal
 npm run build     # build de produção para dist/
 ```
 

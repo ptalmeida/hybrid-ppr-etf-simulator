@@ -81,6 +81,69 @@ describe('simulate — contributions', () => {
   });
 });
 
+describe('simulate — contributions above the age cap earn nothing', () => {
+  // The deduction cap steps down with age (400 / 350 / 300) but a fixed
+  // contribution does not. From 35 the last 250 EUR of a 2000 EUR entrega buys
+  // no deduction at all; from 51, the last 500.
+  it('counts the slice of each entrega that bought no deduction', () => {
+    // mortgage long enough that the PPR cutoff never stops contributions,
+    // so every one of the 30 years is measured
+    const h = byId(
+      simulate(
+        cfg({
+          currentAge: 30,
+          years: 30,
+          annualInvestment: 2000,
+          mortgageYears: 50,
+        }),
+      ),
+      'hybrid',
+    ).final;
+    // ages 30-34 waste nothing, 35-50 waste 250, 51-59 waste 500
+    expect(h.contributionsWithoutBenefit).toBeCloseTo(16 * 250 + 9 * 500, 6);
+  });
+
+  it('stops counting once contributions leave the PPR', () => {
+    // with the default 30-year mortgage the PPR window shuts at year 27, so
+    // the last three years contribute to the ETF and waste nothing
+    const h = byId(
+      simulate(cfg({ currentAge: 30, years: 30 })),
+      'hybrid',
+    ).final;
+    expect(h.contributionsWithoutBenefit).toBeCloseTo(16 * 250 + 6 * 500, 6);
+  });
+
+  it('wastes nothing in maxDeductible mode, which is the point of it', () => {
+    const h = byId(
+      simulate(
+        cfg({ currentAge: 30, years: 30, contributionMode: 'maxDeductible' }),
+      ),
+      'hybrid',
+    ).final;
+    expect(h.contributionsWithoutBenefit).toBe(0);
+  });
+
+  it('wastes nothing while the contribution stays under the cap', () => {
+    const h = byId(
+      simulate(cfg({ currentAge: 55, years: 10, annualInvestment: 1500 })),
+      'hybrid',
+    ).final;
+    expect(h.contributionsWithoutBenefit).toBe(0);
+  });
+
+  it('reaches the same total benefit either way, since the cap binds', () => {
+    const fixed = byId(
+      simulate(cfg({ currentAge: 30, years: 28 })),
+      'hybrid',
+    ).final.irsBenefitTotal;
+    const max = byId(
+      simulate(cfg({ currentAge: 30, years: 28, contributionMode: 'maxDeductible' })),
+      'hybrid',
+    ).final.irsBenefitTotal;
+    expect(fixed).toBeCloseTo(max, 6);
+  });
+});
+
 describe('simulate — the reference case from the community thread', () => {
   // r/literaciafinanceira, "Golden SGF PPR ETF vs investimento direto em ETF".
   // Age 30, 30 years, 6% net ETF, PPR 6% less a 0.75% management fee,

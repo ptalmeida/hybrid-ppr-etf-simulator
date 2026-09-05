@@ -22,6 +22,8 @@ interface Props {
   copied: boolean;
   coverage: Coverage | null;
   lastUsefulPprYear: number | null;
+  /** Entregas that bought no IRS deduction because 20% was over the age cap. */
+  wastedContributions: number;
 }
 
 export function ConfigPanel({
@@ -32,6 +34,7 @@ export function ConfigPanel({
   copied,
   coverage,
   lastUsefulPprYear,
+  wastedContributions,
 }: Props) {
   const isDefault =
     JSON.stringify(config) === JSON.stringify(DEFAULT_CONFIG);
@@ -81,9 +84,24 @@ export function ConfigPanel({
               },
             ]}
             hint={
-              config.contributionMode === 'maxDeductible'
-                ? 'Entrega 2000 €, 1750 € ou 1500 € consoante a idade — exatamente o valor cujos 20% atingem o limite do benefício. Entregar mais não dá dedução adicional.'
-                : undefined
+              config.contributionMode === 'maxDeductible' ? (
+                'Entrega 2000 €, 1750 € ou 1500 € consoante a idade — exatamente o valor cujos 20% atingem o limite do benefício. Entregar mais não dá dedução adicional.'
+              ) : wastedContributions > 0 ? (
+                <>
+                  <span className="block">
+                    O valor entregue mantém-se, mas o limite da dedução desce com
+                    a idade: 400 € até aos 35, 350 € dos 35 aos 50, 300 € depois.
+                    A partir dos 35 só 1750 € dos seus{' '}
+                    {formatEur(config.annualInvestment)} continuam a ser
+                    dedutíveis, e a partir dos 51 só 1500 €.
+                  </span>
+                  <span className="mt-1 block font-medium text-amber-700 dark:text-amber-500">
+                    Ao todo, {formatEur(wastedContributions)} ficam presos no{' '}
+                    {config.pprName} sem gerar qualquer dedução. Esse dinheiro
+                    renderia mais no {config.etfName}, onde não fica bloqueado.
+                  </span>
+                </>
+              ) : undefined
             }
           />
           {config.contributionMode === 'fixed' && (

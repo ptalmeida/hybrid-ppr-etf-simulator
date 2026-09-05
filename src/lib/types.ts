@@ -73,6 +73,8 @@ export interface RedemptionEntry {
   profit: number;
   tax: number;
   net: number;
+  /** IRS deduction this entrega earned in the year it was made. */
+  benefitEarned: number;
   /** IRS deduction handed back, non-zero only for entregas under five years. */
   clawback: number;
 }
@@ -90,6 +92,11 @@ export interface ScenarioFinal {
   pprTax: number;
   pprTaxDuringRedemptions: number;
   irsBenefitTotal: number;
+  /**
+   * Money paid into the PPR that earned no deduction, because 20% of it was
+   * already over the age cap. It sits locked up for nothing.
+   */
+  contributionsWithoutBenefit: number;
   mortgagePaidTotal: number;
   mortgageDueTotal: number;
   mortgagePaidFromSalary: number;

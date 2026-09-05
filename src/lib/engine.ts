@@ -12,6 +12,7 @@ import {
   contributionForYear,
   irsBenefit,
   irsCapForAge,
+  IRS_DEDUCTION_RATE,
   PPR_LEGAL_EXIT_AGE,
   PPR_MIN_TRANCHE_AGE,
 } from './tax';
@@ -161,6 +162,8 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
   let mortgagePaid = 0;
   let benefitTotal = 0;
   let taxPaid = 0;
+  /** Entregas whose 20% was already above the age cap, so bought no deduction. */
+  let contributionsWithoutBenefit = 0;
   /** IRS deductions handed back for redeeming entregas younger than 5 years. */
   let redemptionClawback = 0;
   /** Audit trail: every tranche redeemed, in the year it was redeemed. */
@@ -235,6 +238,11 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       const cap = irsCapForAge(age, cfg.irsBandsEnabled, cfg.irsBenefitCap);
       benefitThisYear = irsBenefit(contribution, cap);
       benefitTotal += benefitThisYear;
+      // the slice of the entrega whose 20% exceeded the cap earns nothing
+      contributionsWithoutBenefit += Math.max(
+        0,
+        contribution - cap / IRS_DEDUCTION_RATE,
+      );
       if (benefitThisYear > 0) {
         benefitYears.push({ year, amount: benefitThisYear });
       }
@@ -299,6 +307,7 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
           }
         }
 
+        const earned = benefitYears.find((b) => b.year === slice.yearDeposited);
         redemptions.push({
           year,
           age,
@@ -309,6 +318,7 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
           profit: slice.profit,
           tax: slice.tax,
           net: slice.net,
+          benefitEarned: (earned?.amount ?? 0) * slice.fraction,
           clawback,
         });
       }
@@ -406,6 +416,7 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       pprTax: final.pprTax,
       pprTaxDuringRedemptions: taxPaid,
       irsBenefitTotal: benefitTotal,
+      contributionsWithoutBenefit,
       mortgagePaidTotal: mortgagePaid,
       mortgageDueTotal,
       mortgagePaidFromSalary,

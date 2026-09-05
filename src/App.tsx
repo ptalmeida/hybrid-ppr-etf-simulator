@@ -100,6 +100,7 @@ export default function App() {
             copied={copied}
             coverage={coverage}
             lastUsefulPprYear={output.lastUsefulPprYear}
+            wastedContributions={hybrid.final.contributionsWithoutBenefit}
           />
         </aside>
 

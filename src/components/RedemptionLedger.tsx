@@ -13,6 +13,7 @@ const HEADERS = [
   'Lucro',
   'Imposto 8%',
   'Para a prestação',
+  'Dedução obtida',
 ] as const;
 
 function toCsv(entries: RedemptionEntry[]): string {
@@ -27,6 +28,7 @@ function toCsv(entries: RedemptionEntry[]): string {
       e.profit.toFixed(2),
       e.tax.toFixed(2),
       e.net.toFixed(2),
+      e.benefitEarned.toFixed(2),
       e.clawback.toFixed(2),
     ].join(','),
   );
@@ -57,9 +59,18 @@ export function RedemptionLedger({
       profit: a.profit + e.profit,
       tax: a.tax + e.tax,
       net: a.net + e.net,
+      benefitEarned: a.benefitEarned + e.benefitEarned,
       clawback: a.clawback + e.clawback,
     }),
-    { gross: 0, principal: 0, profit: 0, tax: 0, net: 0, clawback: 0 },
+    {
+      gross: 0,
+      principal: 0,
+      profit: 0,
+      tax: 0,
+      net: 0,
+      benefitEarned: 0,
+      clawback: 0,
+    },
   );
 
   const copy = async () => {
@@ -98,7 +109,10 @@ export function RedemptionLedger({
               Cada linha é uma entrega ao {pprName} a ser resgatada para pagar
               prestações. A coluna «antiguidade» é o teste que decide tudo: só a
               partir dos 5 anos é que a dedução de IRS sobrevive ao resgate. O
-              imposto incide apenas sobre o lucro, nunca sobre o capital.
+              imposto incide apenas sobre o lucro, nunca sobre o capital. A
+              «dedução obtida» é o que essa entrega rendeu no ano em que foi
+              feita — desce com a idade (400 €, 350 € a partir dos 35, 300 €
+              acima dos 50), mesmo quando o valor entregue se mantém.
             </p>
             <button
               type="button"
@@ -161,6 +175,9 @@ export function RedemptionLedger({
                     <td className={`${num} font-medium`}>
                       {formatEurPrecise(e.net)}
                     </td>
+                    <td className={`${num} text-emerald-700 dark:text-emerald-400`}>
+                      {formatEurPrecise(e.benefitEarned)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -176,6 +193,9 @@ export function RedemptionLedger({
                     −{formatEurPrecise(totals.tax)}
                   </td>
                   <td className={num}>{formatEurPrecise(totals.net)}</td>
+                  <td className={`${num} text-emerald-700 dark:text-emerald-400`}>
+                    {formatEurPrecise(totals.benefitEarned)}
+                  </td>
                 </tr>
               </tfoot>
             </table>
