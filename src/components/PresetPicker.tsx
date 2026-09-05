@@ -40,6 +40,9 @@ export function PresetPicker<P extends EtfPreset | PprPreset>({
   const gross = selected ? grossReturnFor(selected) : null;
   const alreadyUsingHistory =
     gross !== null && Math.abs(currentReturn - gross) < 0.005;
+  const usingExpected =
+    selected !== null &&
+    Math.abs(currentReturn - selected.expected.grossPct) < 0.005;
 
   return (
     <div className="space-y-2">
@@ -65,10 +68,34 @@ export function PresetPicker<P extends EtfPreset | PprPreset>({
         }
       />
 
+      {selected && (
+        <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
+          <p className="text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+            Expectativa de longo prazo:{' '}
+            <strong className="tnum">
+              {formatRate(selected.expected.grossPct)} ao ano
+            </strong>{' '}
+            bruto. É este o valor em uso.
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+            {selected.expected.basis}
+          </p>
+          {!usingExpected && (
+            <button
+              type="button"
+              onClick={() => onUseHistory(selected.expected.grossPct)}
+              className="mt-2 flex items-center gap-1.5 rounded-md border border-emerald-400 px-2.5 py-1 text-xs font-medium text-emerald-800 hover:bg-white dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-slate-800"
+            >
+              <Sparkles size={13} /> Repor {formatRate(selected.expected.grossPct)}
+            </button>
+          )}
+        </div>
+      )}
+
       {selected?.history && gross !== null && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/40">
           <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-            Rendibilidade histórica:{' '}
+            Só para referência — rendibilidade histórica:{' '}
             <strong className="tnum text-slate-800 dark:text-slate-200">
               {formatRate(selected.history.annualisedPct)} ao ano
             </strong>{' '}
@@ -118,7 +145,7 @@ export function PresetPicker<P extends EtfPreset | PprPreset>({
               </>
             ) : (
               <>
-                <Sparkles size={13} /> Usar {formatRate(gross)} bruto
+                <Sparkles size={13} /> Usar antes {formatRate(gross)} bruto
               </>
             )}
           </button>

@@ -33,7 +33,7 @@ npm run dev
 Outros comandos:
 
 ```bash
-npm test          # 242 testes da lógica fiscal
+npm test          # 250 testes da lógica fiscal
 npm run build     # build de produção para dist/
 ```
 
@@ -46,7 +46,7 @@ src/lib/       lógica pura, sem React
   engine.ts    o ciclo anual que produz os três cenários
   url.ts       configuração <-> query string
   fees.ts      motor de comissões: regras com condições, não só percentagens
-  presets.ts   produtos reais: nome e comissões verificadas, sem rendibilidade
+  presets.ts   produtos reais: comissões verificadas e expectativa de longo prazo
   waterfall.ts decomposição do resultado, testada contra o cartão
   explain.ts   texto gerado a partir do resultado
 src/components/  apresentação apenas, recebe dados já calculados

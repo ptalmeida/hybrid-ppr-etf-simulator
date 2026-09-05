@@ -48,6 +48,15 @@ export interface Preset<K extends keyof SimConfig> {
     };
     caution?: string;
   };
+  /**
+   * Long-run expected annual return, nominal, gross of this product's own
+   * charges. Derived from its asset mix, not from a trailing window.
+   */
+  expected: {
+    grossPct: number;
+    /** One sentence on how this was derived, shown to the user. */
+    basis: string;
+  };
   sri?: number;
   inception?: string;
   sources: string[];
@@ -85,6 +94,11 @@ export const ETF_PRESETS: EtfPreset[] = [
       from: '2021-07',
       to: '2026-07',
     },
+    expected: {
+      grossPct: 6.5,
+      basis:
+        'Ações globais (desenvolvidas e emergentes) a 20-40 anos — ver docs/research/expected-returns.md.',
+    },
     sri: 4,
     inception: 'jul 2019',
     sources: ['https://www.justetf.com/en/etf-profile.html?isin=IE00BK5BQT80'],
@@ -96,6 +110,11 @@ export const ETF_PRESETS: EtfPreset[] = [
       'O mesmo índice da VWCE, com um TER ligeiramente superior e um fundo bastante mais pequeno.',
     isin: 'IE000716YHJ7',
     values: { etfName: 'FWRA', etfFee: 0.15 },
+    expected: {
+      grossPct: 6.5,
+      basis:
+        'Mesmo índice da VWCE — ações globais a 20-40 anos, ver docs/research/expected-returns.md.',
+    },
     inception: 'jun 2023',
     sources: ['https://etf.invesco.com/'],
   },
@@ -106,6 +125,11 @@ export const ETF_PRESETS: EtfPreset[] = [
       'Ações globais ao TER mais baixo desta lista, mas com poucos anos de histórico.',
     isin: 'IE0003XJA0J9',
     values: { etfName: 'WEBN', etfFee: 0.07 },
+    expected: {
+      grossPct: 6.5,
+      basis:
+        'Ações globais (All-Country World) a 20-40 anos — ver docs/research/expected-returns.md.',
+    },
     sri: 4,
     inception: 'jun 2024',
     sources: ['https://www.amundietf.pt/'],
@@ -124,6 +148,11 @@ export const ETF_PRESETS: EtfPreset[] = [
       from: '2021-07',
       to: '2026-07',
     },
+    expected: {
+      grossPct: 6.3,
+      basis:
+        'Ações de mercados desenvolvidos (sem emergentes) a 20-40 anos — ver docs/research/expected-returns.md.',
+    },
     inception: 'set 2009',
     sources: ['https://www.ishares.com/'],
   },
@@ -140,6 +169,11 @@ export const ETF_PRESETS: EtfPreset[] = [
       years: 5,
       from: '2021-07',
       to: '2026-07',
+    },
+    expected: {
+      grossPct: 5.8,
+      basis:
+        'S&P 500 a 20-40 anos, abaixo da sua própria média histórica por as valorizações atuais estarem elevadas — ver docs/research/expected-returns.md.',
     },
     sri: 4,
     inception: 'mai 2019',
@@ -158,6 +192,11 @@ export const ETF_PRESETS: EtfPreset[] = [
       from: '2021-07',
       to: '2026-07',
     },
+    expected: {
+      grossPct: 5.8,
+      basis:
+        'S&P 500 a 20-40 anos, abaixo da sua própria média histórica por as valorizações atuais estarem elevadas — ver docs/research/expected-returns.md.',
+    },
     sri: 4,
     inception: 'mai 2010',
     sources: ['https://www.ishares.com/'],
@@ -175,6 +214,11 @@ export const ETF_PRESETS: EtfPreset[] = [
       years: 5,
       from: '2021-07',
       to: '2026-07',
+    },
+    expected: {
+      grossPct: 5.8,
+      basis:
+        'S&P 500 a 20-40 anos, abaixo da sua própria média histórica por as valorizações atuais estarem elevadas — ver docs/research/expected-returns.md.',
     },
     inception: 'mar 2012',
     sources: ['https://www.ssga.com/'],
@@ -236,6 +280,11 @@ export const PPR_PRESETS: PprPreset[] = [
       caution:
         'Anualizado a partir do valor cumulativo de +37,95% publicado pela gestora. A janela começa no mínimo de outubro de 2023 e não apanha a queda de 2022, por isso não é comparável com os 5 anos dos ETF acima.',
     },
+    expected: {
+      grossPct: 5.6,
+      basis:
+        'Mistura de ~75% ações globais e ~22,5% obrigações/liquidez às estimativas de longo prazo de cada classe — ver docs/research/expected-returns.md.',
+    },
     sri: 4,
     inception: 'out 2023 (Classe Plus)',
     sources: [
@@ -270,6 +319,11 @@ export const PPR_PRESETS: PprPreset[] = [
       caution:
         'Custos correntes dos ETF subjacentes não divulgados, por isso o custo real é superior ao que aqui está.',
     },
+    expected: {
+      grossPct: 4.8,
+      basis:
+        'Mistura base de ~50% ações globais e ~50% obrigações/liquidez/outros às estimativas de longo prazo de cada classe — ver docs/research/expected-returns.md.',
+    },
     sri: 4,
     sources: ['https://stoik.pt/custos-ppr'],
   },
@@ -299,6 +353,11 @@ export const PPR_PRESETS: PprPreset[] = [
         label: 'VWCE',
       },
     },
+    expected: {
+      grossPct: 6.0,
+      basis:
+        'Exposição histórica a ações entre 75% e 95% (até 100% permitido) — estimado como ~85% ações globais / 15% obrigações às estimativas de longo prazo — ver docs/research/expected-returns.md.',
+    },
     sri: 5,
     sources: ['https://www.optimize.pt/'],
   },
@@ -326,6 +385,11 @@ export const PPR_PRESETS: PprPreset[] = [
         label: 'VWCE',
       },
       caution: 'Comissão de gestão não confirmada em fonte primária.',
+    },
+    expected: {
+      grossPct: 6.2,
+      basis:
+        'Fundo de ações de poupança-reforma com exposição presumida acima de 75% — estimado como ~90% ações globais / 10% obrigações às estimativas de longo prazo — ver docs/research/expected-returns.md.',
     },
     sri: 5,
     sources: ['https://www.bpi.pt/'],
@@ -357,6 +421,11 @@ export const PPR_PRESETS: PprPreset[] = [
       caution:
         'Comissões não confirmadas individualmente para este fundo; assumidas iguais às da casa.',
     },
+    expected: {
+      grossPct: 6.0,
+      basis:
+        'Fundo de pensões mais agressivo que o Golden ETF (SRI 5 vs. 4) — estimado como ~85% ações globais / 15% obrigações às estimativas de longo prazo — ver docs/research/expected-returns.md.',
+    },
     sri: 5,
     sources: ['https://www.ativos.pt/planos-poupanca-reforma'],
   },
@@ -386,6 +455,11 @@ export const PPR_PRESETS: PprPreset[] = [
       },
       caution:
         'Média de 1070 produtos, a maioria de capital garantido. É o número que mostra o que um PPR escolhido ao acaso costuma render.',
+    },
+    expected: {
+      grossPct: 3.4,
+      basis:
+        'SRI médio de 2,5/7 e mercado dominado por capital garantido (720 de 1070 produtos) — estimado como ~15% ações globais / 85% obrigações e liquidez às estimativas de longo prazo — ver docs/research/expected-returns.md.',
     },
     sources: ['https://www.ativos.pt/planos-poupanca-reforma'],
   },
@@ -435,13 +509,19 @@ export const matchPprPreset = (cfg: SimConfig) =>
 
 /** The config changes a preset applies. Everything else is left alone. */
 export function applyEtfPreset(p: EtfPreset): Partial<SimConfig> {
-  return { ...p.values };
+  // the expected return comes with the product because it follows from the
+  // asset mix, not from a trailing window; switching product must move it
+  return { ...p.values, etfReturn: p.expected.grossPct };
 }
 
 export function applyPprPreset(p: PprPreset): Partial<SimConfig> {
-  // extraFees is replaced wholesale, including with [] so a flat-fee preset
-  // clears a tiered one rather than inheriting its bands
-  return { ...p.values, extraFees: p.values.extraFees ?? [] };
+  return {
+    ...p.values,
+    // extraFees is replaced wholesale, including with [] so a flat-fee preset
+    // clears a tiered one rather than inheriting its bands
+    extraFees: p.values.extraFees ?? [],
+    pprReturn: p.expected.grossPct,
+  };
 }
 
 /**

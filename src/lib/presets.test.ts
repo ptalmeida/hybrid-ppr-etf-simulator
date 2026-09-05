@@ -69,12 +69,55 @@ describe('preset catalogue', () => {
     }
   });
 
-  it('never sets a return, because that is a forecast not a fact', () => {
+  it('gives every preset a finite, plausible long-run expected return', () => {
+    for (const p of [...ETF_PRESETS, ...PPR_PRESETS]) {
+      expect(Number.isFinite(p.expected.grossPct)).toBe(true);
+      expect(p.expected.grossPct).toBeGreaterThan(0);
+      expect(p.expected.grossPct).toBeLessThan(15);
+    }
+  });
+
+  it('never expects a 100% equity ETF to repeat its own recent bull run', () => {
+    // the long-run forward estimate must be more conservative than a trailing
+    // window that happened to catch a bull market
+    for (const p of ETF_PRESETS) {
+      if (!p.history) continue;
+      expect(p.expected.grossPct).toBeLessThan(p.history.annualisedPct);
+    }
+  });
+
+  it('keeps the return out of `values`, so matching ignores it', () => {
+    // applying a preset does set the return, but a user who then edits it is
+    // still holding the same product and must not read as custom
     for (const p of ETF_PRESETS) {
       expect(p.values).not.toHaveProperty('etfReturn');
     }
     for (const p of PPR_PRESETS) {
       expect(p.values).not.toHaveProperty('pprReturn');
+    }
+  });
+
+  it('applies the long-run expectation, not the trailing window', () => {
+    for (const p of ETF_PRESETS) {
+      expect(applyEtfPreset(p).etfReturn).toBe(p.expected.grossPct);
+    }
+    for (const p of PPR_PRESETS) {
+      expect(applyPprPreset(p).pprReturn).toBe(p.expected.grossPct);
+    }
+  });
+
+  it('moves the return when the product changes', () => {
+    const vwce = applyEtfPreset(ETF_PRESETS.find((p) => p.id === 'vwce')!);
+    const vuaa = applyEtfPreset(ETF_PRESETS.find((p) => p.id === 'vuaa')!);
+    // the S&P 500 estimate is deliberately below the global one
+    expect(vuaa.etfReturn).toBeLessThan(vwce.etfReturn!);
+  });
+
+  it('expects less from every PPR than from a global equity ETF', () => {
+    // they are all mixed funds, so none should out-expect 100% equities
+    const vwce = ETF_PRESETS.find((p) => p.id === 'vwce')!;
+    for (const p of PPR_PRESETS) {
+      expect(p.expected.grossPct).toBeLessThan(vwce.expected.grossPct);
     }
   });
 

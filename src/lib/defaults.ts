@@ -6,8 +6,10 @@ export const DEFAULT_CONFIG: SimConfig = {
   contributionTiming: 'start',
   annualInvestment: 2000,
   years: 33,
-  etfReturn: 7.97,
-  pprReturn: 5.7,
+  // gross expected returns of the default presets — see lib/presets.ts and
+  // docs/research/expected-returns.md
+  etfReturn: 6.5,
+  pprReturn: 5.6,
   // defaults to the Golden SGF PPR ETF preset — see lib/presets.ts
   pprSubscriptionFee: 0,
   pprFee: 0,
