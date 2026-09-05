@@ -1,4 +1,5 @@
 import type {
+  AfterMortgage,
   BenefitDestination,
   ContributionMode,
   ContributionTiming,
@@ -26,6 +27,7 @@ const KEYS: Record<keyof SimConfig, string> = {
   hasMortgage: 'ch',
   mortgageStartYear: 'mstart',
   mortgageYears: 'mlen',
+  afterMortgage: 'after',
   monthlyInstalment: 'minst',
   benefitDestination: 'bdest',
   reinvestRedemption: 'rred',
@@ -41,6 +43,7 @@ const KEYS: Record<keyof SimConfig, string> = {
 
 const CONTRIBUTION_MODES: ContributionMode[] = ['fixed', 'maxDeductible'];
 const CONTRIBUTION_TIMINGS: ContributionTiming[] = ['start', 'end'];
+const AFTER_MORTGAGE: AfterMortgage[] = ['ppr', 'etf', 'stop'];
 const ETF_TAX_MODES: EtfTaxMode[] = ['ladder', 'flat28', 'englobamento'];
 const BENEFIT_DESTINATIONS: BenefitDestination[] = ['etf', 'ppr', 'consumed'];
 
@@ -127,6 +130,11 @@ export function parseConfig(query: string): SimConfig {
     hasMortgage: bool('hasMortgage'),
     mortgageStartYear: num('mortgageStartYear'),
     mortgageYears: num('mortgageYears'),
+    afterMortgage: pickEnum(
+      read('afterMortgage') ?? '',
+      AFTER_MORTGAGE,
+      DEFAULT_CONFIG.afterMortgage,
+    ),
     monthlyInstalment: num('monthlyInstalment'),
     benefitDestination: pickEnum(
       read('benefitDestination') ?? '',

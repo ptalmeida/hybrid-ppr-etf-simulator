@@ -21,6 +21,7 @@ interface Props {
   onCopyLink: () => void;
   copied: boolean;
   coverage: Coverage | null;
+  lastUsefulPprYear: number | null;
 }
 
 export function ConfigPanel({
@@ -30,6 +31,7 @@ export function ConfigPanel({
   onCopyLink,
   copied,
   coverage,
+  lastUsefulPprYear,
 }: Props) {
   const isDefault =
     JSON.stringify(config) === JSON.stringify(DEFAULT_CONFIG);
@@ -200,6 +202,31 @@ export function ConfigPanel({
               )
             }
           />
+          )}
+          {config.hasMortgage && (
+            <SelectField
+              id="afterMortgage"
+              label="Quando o crédito acabar"
+              value={config.afterMortgage}
+              onChange={(afterMortgage) => onChange({ afterMortgage })}
+              options={[
+                { value: 'etf', label: `Passar a investir no ${config.etfName}` },
+                { value: 'ppr', label: `Continuar a entregar ao ${config.pprName}` },
+                { value: 'stop', label: 'Parar de investir' },
+              ]}
+              hint={
+                lastUsefulPprYear === null ? undefined : (
+                  <>
+                    A última entrega ao {config.pprName} que ainda consegue sair
+                    pela alínea g) é a do{' '}
+                    <strong>ano {lastUsefulPprYear}</strong>
+                    {config.use35Rule
+                      ? ' — o último ano do crédito, porque pela regra dos 35% o plano inteiro já é resgatável.'
+                      : ' — cinco anos antes do fim do crédito, porque sem a regra dos 35% cada entrega tem de fazer cinco anos.'}
+                  </>
+                )
+              }
+            />
           )}
         </div>
       </Card>

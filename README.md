@@ -31,7 +31,7 @@ npm run dev
 Outros comandos:
 
 ```bash
-npm test          # 132 testes da lógica fiscal
+npm test          # 167 testes da lógica fiscal
 npm run build     # build de produção para dist/
 ```
 
@@ -43,6 +43,7 @@ src/lib/       lógica pura, sem React
   tranches.ts  operações FIFO sobre entradas (crescer, resgatar, liquidar)
   engine.ts    o ciclo anual que produz os três cenários
   url.ts       configuração <-> query string
+  waterfall.ts decomposição do resultado, testada contra o cartão
   explain.ts   texto gerado a partir do resultado
 src/components/  apresentação apenas, recebe dados já calculados
 ```

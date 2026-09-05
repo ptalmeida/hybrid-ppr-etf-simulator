@@ -4,6 +4,7 @@ export type ContributionMode = 'fixed' | 'maxDeductible';
 export type EtfTaxMode = 'ladder' | 'flat28' | 'englobamento';
 export type BenefitDestination = 'etf' | 'ppr' | 'consumed';
 export type ContributionTiming = 'start' | 'end';
+export type AfterMortgage = 'ppr' | 'etf' | 'stop';
 
 export interface SimConfig {
   currentAge: number;
@@ -20,6 +21,7 @@ export interface SimConfig {
   hasMortgage: boolean;
   mortgageStartYear: number;
   mortgageYears: number;
+  afterMortgage: AfterMortgage;
   monthlyInstalment: number;
   benefitDestination: BenefitDestination;
   reinvestRedemption: boolean;
@@ -73,6 +75,10 @@ export interface ScenarioFinal {
   mortgageDueTotal: number;
   mortgagePaidFromSalary: number;
   freedSalaryReinvested: number;
+  /** Benefit received and NOT reinvested — still in hand at the end. */
+  benefitInHand: number;
+  /** Mortgage paid by the PPR whose freed salary was NOT reinvested. */
+  mortgageInHand: number;
   totalOutOfPocket: number;
   penalisedExit: boolean;
   mortgageEndYear: number | null;

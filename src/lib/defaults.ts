@@ -15,6 +15,7 @@ export const DEFAULT_CONFIG: SimConfig = {
   hasMortgage: true,
   mortgageStartYear: 3,
   mortgageYears: 30,
+  afterMortgage: 'etf',
   monthlyInstalment: 1000,
   benefitDestination: 'etf',
   reinvestRedemption: true,

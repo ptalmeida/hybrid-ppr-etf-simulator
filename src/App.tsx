@@ -97,6 +97,7 @@ export default function App() {
             onCopyLink={copyLink}
             copied={copied}
             coverage={coverage}
+            lastUsefulPprYear={output.lastUsefulPprYear}
           />
         </aside>
 

@@ -12,6 +12,7 @@ import {
   irsBenefit,
   irsCapForAge,
   PPR_LEGAL_EXIT_AGE,
+  PPR_MIN_TRANCHE_AGE,
 } from './tax';
 import {
   chargeFixedCost,
@@ -92,15 +93,14 @@ function valueInHand(
   cfg: SimConfig,
   benefitTotal: number,
   mortgagePaid: number,
-): number {
+): { benefit: number; mortgage: number; total: number } {
   const benefitReinvested =
     policy.reinvests && cfg.benefitDestination !== 'consumed';
   const redemptionReinvested = policy.reinvests && cfg.reinvestRedemption;
 
-  return (
-    (benefitReinvested ? 0 : benefitTotal) +
-    (redemptionReinvested ? 0 : mortgagePaid)
-  );
+  const benefit = benefitReinvested ? 0 : benefitTotal;
+  const mortgage = redemptionReinvested ? 0 : mortgagePaid;
+  return { benefit, mortgage, total: benefit + mortgage };
 }
 
 function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
@@ -177,17 +177,30 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
     if (cfg.contributionTiming === 'end') applyGrowth();
 
     // 2. this year's contribution out of pocket
-    const contribution = contributionForYear(
-      cfg.contributionMode,
-      age,
-      cfg.annualInvestment,
-      cfg.irsBandsEnabled,
-      cfg.irsBenefitCap,
-    );
+    //
+    // Once the mortgage is settled, alínea g) is gone. Contributing to the PPR
+    // past that point buys a deduction the participant may not be able to keep,
+    // so `afterMortgage` decides what happens instead. 'stop' applies to every
+    // scenario, otherwise they would stop costing the same.
+    const mortgageOver = mortgageEndYear !== null && year > mortgageEndYear;
+    const stopped = mortgageOver && cfg.afterMortgage === 'stop';
+    const divertToEtf =
+      mortgageOver && cfg.afterMortgage === 'etf' && policy.primary === 'ppr';
+
+    const contribution = stopped
+      ? 0
+      : contributionForYear(
+          cfg.contributionMode,
+          age,
+          cfg.annualInvestment,
+          cfg.irsBandsEnabled,
+          cfg.irsBenefitCap,
+        );
     contributed += contribution;
 
+    const destination: 'etf' | 'ppr' = divertToEtf ? 'etf' : policy.primary;
     const intoPrimary =
-      policy.primary === 'ppr' ? contribution + pendingPprBenefit : contribution;
+      destination === 'ppr' ? contribution + pendingPprBenefit : contribution;
     pendingPprBenefit = 0;
 
     if (intoPrimary > 0) {
@@ -195,16 +208,16 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
         yearDeposited: year,
         principal: intoPrimary,
         value: intoPrimary,
-        product: policy.primary,
+        product: destination,
       });
-      if (policy.primary === 'ppr') {
+      if (destination === 'ppr') {
         entregas.push({ year, amount: intoPrimary });
       }
     }
 
-    // 3. the IRS deduction, and where it goes
+    // 3. the IRS deduction — only earned by money that actually went to the PPR
     let benefitThisYear = 0;
-    if (policy.primary === 'ppr' && contribution > 0) {
+    if (destination === 'ppr' && contribution > 0) {
       const cap = irsCapForAge(age, cfg.irsBandsEnabled, cfg.irsBenefitCap);
       benefitThisYear = irsBenefit(contribution, cap);
       benefitTotal += benefitThisYear;
@@ -282,7 +295,8 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       taxPaidToDate: taxPaid,
       netIfLiquidatedNow: snapshot.net,
       netWithBenefits:
-        snapshot.net + valueInHand(policy, cfg, benefitTotal, mortgagePaid),
+        snapshot.net +
+        valueInHand(policy, cfg, benefitTotal, mortgagePaid).total,
     });
   }
 
@@ -327,6 +341,7 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
   const totalOutOfPocket =
     contributed + mortgagePaidFromSalary + reinvestedFreedSalary;
 
+  const inHand = valueInHand(policy, cfg, benefitTotal, mortgagePaid);
   const totalTax = final.etfTax + final.pprTax + taxPaid + benefitClawback;
   const totalGain = final.gross + mortgagePaid - contributed;
 
@@ -349,11 +364,10 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       mortgageEndYear,
       pprAfterMortgageEnds,
       benefitClawback,
+      benefitInHand: inHand.benefit,
+      mortgageInHand: inHand.mortgage,
       netValue: final.net - benefitClawback,
-      netWithBenefits:
-        final.net -
-        benefitClawback +
-        valueInHand(policy, cfg, benefitTotal, mortgagePaid),
+      netWithBenefits: final.net - benefitClawback + inHand.total,
       totalContributed: contributed,
       effectiveTaxRate: totalGain > 0 ? Math.min(1, totalTax / totalGain) : 0,
       bracketBreakdown: final.bracketBreakdown,
@@ -372,7 +386,31 @@ export function simulate(cfg: SimConfig): SimOutput {
   const etf = scenarios.find((s) => s.id === 'etf')!;
   const hybrid = scenarios.find((s) => s.id === 'hybrid')!;
 
-  return { scenarios, breakEvenYear: findBreakEven(hybrid, etf) };
+  return {
+    scenarios,
+    breakEvenYear: findBreakEven(hybrid, etf),
+    lastUsefulPprYear: lastUsefulPprYear(cfg),
+  };
+}
+
+/**
+ * Last year in which a PPR entrega can still be redeemed through alínea g),
+ * and therefore the last year it is worth making one.
+ *
+ * The answer depends on which eligibility regime applies, and the two differ
+ * by five whole years:
+ *
+ *  - art. 4.º/3 (the 35% test passes, which regular contributions satisfy):
+ *    the whole plan is redeemable once it is five years old, so an entrega
+ *    made in the mortgage's final year can be redeemed that same year.
+ *  - art. 4.º/2 alone: each entrega must itself be five years old, so the last
+ *    useful one is five years before the mortgage ends.
+ */
+function lastUsefulPprYear(cfg: SimConfig): number | null {
+  if (!cfg.hasMortgage) return null;
+  const mortgageEnd = cfg.mortgageStartYear + cfg.mortgageYears - 1;
+  const last = cfg.use35Rule ? mortgageEnd : mortgageEnd - PPR_MIN_TRANCHE_AGE;
+  return last >= 1 ? last : null;
 }
 
 /**

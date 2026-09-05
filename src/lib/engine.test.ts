@@ -440,7 +440,7 @@ describe('simulate — the mortgage has a term', () => {
     expect(f.mortgageDueTotal).toBe(12000 * 8);
   });
 
-  it('strands the PPR when the mortgage ends before the participant is 60', () => {
+  it('strands the PPR when contributions keep going in after the mortgage', () => {
     // age 30, mortgage runs years 3..12, so age 41 when it ends
     const h = byId(
       simulate(
@@ -449,12 +449,32 @@ describe('simulate — the mortgage has a term', () => {
           years: 25,
           mortgageStartYear: 3,
           mortgageYears: 10,
+          afterMortgage: 'ppr',
         }),
       ),
       'hybrid',
     ).final;
     expect(h.pprAfterMortgageEnds).toBe(true);
     expect(h.penalisedExit).toBe(true);
+    expect(h.benefitClawback).toBeGreaterThan(0);
+  });
+
+  it('strands nothing when contributions move to the ETF instead', () => {
+    // the whole point of the option: no PPR balance is left to be penalised
+    const h = byId(
+      simulate(
+        cfg({
+          currentAge: 30,
+          years: 25,
+          mortgageStartYear: 3,
+          mortgageYears: 10,
+          afterMortgage: 'etf',
+        }),
+      ),
+      'hybrid',
+    ).final;
+    expect(h.penalisedExit).toBe(false);
+    expect(h.benefitClawback).toBe(0);
   });
 
   it('does not strand it when the mortgage outlasts the horizon', () => {
@@ -495,6 +515,101 @@ describe('simulate — the mortgage has a term', () => {
       'hybrid',
     ).final;
     expect(f.mortgageEndYear).toBe(12);
+  });
+});
+
+describe('simulate — what happens after the mortgage ends', () => {
+  const base = {
+    currentAge: 30,
+    years: 25,
+    mortgageStartYear: 3,
+    mortgageYears: 10,
+  } as const;
+
+  it('keeps feeding the PPR under "ppr", earning deductions it may not keep', () => {
+    const h = byId(
+      simulate(cfg({ ...base, afterMortgage: 'ppr' })),
+      'hybrid',
+    );
+    const late = h.rows.filter((r) => r.year > 12);
+    expect(late.every((r) => r.contributedThisYear > 0)).toBe(true);
+    expect(late.every((r) => r.irsBenefitThisYear > 0)).toBe(true);
+    expect(h.rows.at(-1)!.pprBalance).toBeGreaterThan(0);
+  });
+
+  it('diverts to the ETF under "etf", and stops earning deductions', () => {
+    const h = byId(simulate(cfg({ ...base, afterMortgage: 'etf' })), 'hybrid');
+    const late = h.rows.filter((r) => r.year > 12);
+    // still investing the same money out of pocket
+    expect(late.every((r) => r.contributedThisYear > 0)).toBe(true);
+    // but no deduction, because nothing went into the PPR
+    expect(late.every((r) => r.irsBenefitThisYear === 0)).toBe(true);
+    expect(h.rows.at(-1)!.pprBalance).toBeCloseTo(0, 6);
+  });
+
+  it('stops contributing under "stop", in every scenario equally', () => {
+    const out = simulate(cfg({ ...base, afterMortgage: 'stop' }));
+    for (const s of out.scenarios) {
+      expect(
+        s.rows.filter((r) => r.year > 12).every((r) => r.contributedThisYear === 0),
+      ).toBe(true);
+    }
+    // out of pocket stays identical, so the comparison stays fair
+    const [etf, hybrid] = out.scenarios;
+    expect(etf.final.totalContributed).toBeCloseTo(
+      hybrid.final.totalContributed,
+      6,
+    );
+  });
+
+  it('lets the portfolio ride under "stop" instead of shrinking', () => {
+    const rows = byId(
+      simulate(cfg({ ...base, afterMortgage: 'stop' })),
+      'etf',
+    ).rows;
+    const late = rows.filter((r) => r.year > 12);
+    for (let i = 1; i < late.length; i++) {
+      expect(late[i].etfBalance).toBeGreaterThan(late[i - 1].etfBalance);
+    }
+  });
+
+  it('leaves every scenario costing the same out of pocket under "etf"', () => {
+    const out = simulate(cfg({ ...base, afterMortgage: 'etf' }));
+    const [etf, hybrid] = out.scenarios;
+    expect(etf.final.totalContributed).toBeCloseTo(
+      hybrid.final.totalContributed,
+      6,
+    );
+  });
+});
+
+describe('simulate — the last year worth contributing to the PPR', () => {
+  it('is the mortgage’s final year when the 35% rule applies', () => {
+    // art. 4.o/3: the whole plan is redeemable, so a contribution made in the
+    // mortgage's last year can be redeemed that same year
+    const out = simulate(
+      cfg({ mortgageStartYear: 3, mortgageYears: 10, use35Rule: true }),
+    );
+    expect(out.lastUsefulPprYear).toBe(12);
+  });
+
+  it('is five years earlier when only the per-entrega rule applies', () => {
+    // art. 4.o/2: each entrega must itself be five years old
+    const out = simulate(
+      cfg({ mortgageStartYear: 3, mortgageYears: 10, use35Rule: false }),
+    );
+    expect(out.lastUsefulPprYear).toBe(7);
+  });
+
+  it('is null without a mortgage', () => {
+    expect(simulate(cfg({ hasMortgage: false })).lastUsefulPprYear).toBeNull();
+  });
+
+  it('is null when the per-entrega rule leaves no usable year at all', () => {
+    const out = simulate(
+      cfg({ mortgageStartYear: 1, mortgageYears: 3, use35Rule: false }),
+    );
+    expect(out.lastUsefulPprYear).toBeNull();
   });
 });
 
