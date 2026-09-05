@@ -68,34 +68,71 @@ export function SummaryCards({ scenarios }: { scenarios: ScenarioResult[] }) {
               </p>
             )}
 
+            {s.final.penalisedExit && (
+              <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs leading-relaxed text-rose-800 dark:bg-rose-950/50 dark:text-rose-200">
+                Resgate <strong>fora das condições legais</strong>: sem crédito
+                habitação e ainda sem 60 anos no fim do horizonte. Paga 21,5% /
+                17,2% / 8,6% conforme o prazo e devolve{' '}
+                {formatEur(s.final.benefitClawback)} de benefícios majorados.
+              </p>
+            )}
+
             <div className="mt-4 space-y-1.5 border-t border-slate-200 pt-4 dark:border-slate-800">
               {hasOtherChannels && (
-                <Row
-                  label="Só a carteira"
-                  value={formatEur(s.final.netValue)}
-                />
+                <Row label="Só a carteira" value={formatEur(s.final.netValue)} />
               )}
-              <Row
-                label="Total investido"
-                value={formatEur(s.final.totalContributed)}
-              />
               <Row label="Imposto total" value={formatEur(totalTax)} />
               <Row
                 label="Taxa efetiva sobre ganhos"
                 value={formatPct(s.final.effectiveTaxRate)}
               />
-              {s.final.mortgagePaidTotal > 0 && (
-                <Row
-                  label="Prestações pagas pelo PPR"
-                  value={formatEur(s.final.mortgagePaidTotal)}
-                />
-              )}
               {s.final.irsBenefitTotal > 0 && (
                 <Row
                   label="Benefício de IRS acumulado"
                   value={formatEur(s.final.irsBenefitTotal)}
                 />
               )}
+            </div>
+
+            {/* The cash-flow block exists to prove the comparison is fair: the
+                same mortgage is owed in every scenario, and the bottom line
+                matches whenever the freed salary is reinvested. */}
+            <div className="mt-4 space-y-1.5 border-t border-slate-200 pt-4 dark:border-slate-800">
+              <p className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
+                Sai do seu bolso
+              </p>
+              <Row
+                label="Investido"
+                value={formatEur(s.final.totalContributed)}
+              />
+              {s.final.mortgageDueTotal > 0 && (
+                <>
+                  <Row
+                    label="Prestações do salário"
+                    value={formatEur(s.final.mortgagePaidFromSalary)}
+                  />
+                  {s.final.mortgagePaidTotal > 0 && (
+                    <Row
+                      label="Prestações pagas pelo PPR"
+                      value={formatEur(s.final.mortgagePaidTotal)}
+                    />
+                  )}
+                  {s.final.freedSalaryReinvested > 0 && (
+                    <Row
+                      label="Folga do salário reinvestida"
+                      value={formatEur(s.final.freedSalaryReinvested)}
+                    />
+                  )}
+                </>
+              )}
+              <div className="flex items-baseline justify-between gap-3 border-t border-slate-200 pt-1.5 text-sm dark:border-slate-800">
+                <span className="font-medium text-slate-700 dark:text-slate-300">
+                  Total
+                </span>
+                <span className="tnum font-semibold text-slate-900 dark:text-slate-100">
+                  {formatEur(s.final.totalOutOfPocket)}
+                </span>
+              </div>
             </div>
           </article>
         );

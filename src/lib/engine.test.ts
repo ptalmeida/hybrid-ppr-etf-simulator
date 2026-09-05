@@ -209,12 +209,18 @@ describe('simulate — mortgage redemptions', () => {
     expect(rows[9].redeemedThisYear).toBeGreaterThan(0);
   });
 
-  it('caps annual redemption at twelve monthly instalments', () => {
-    const out = simulate(
-      cfg({ years: 20, mortgageStartYear: 6, monthlyInstalment: 100 }),
-    );
-    for (const row of byId(out, 'hybrid').rows) {
-      expect(row.redeemedThisYear).toBeLessThanOrEqual(1200 + 1e-6);
+  it('caps the mortgage credited each year at twelve instalments', () => {
+    // redeemedThisYear is GROSS and legitimately exceeds the cap, because tax
+    // is withheld before the money reaches the instalment. The cap binds on
+    // what actually settles the mortgage.
+    const rows = byId(
+      simulate(cfg({ years: 20, mortgageStartYear: 6, monthlyInstalment: 100 })),
+      'hybrid',
+    ).rows;
+    let prev = 0;
+    for (const row of rows) {
+      expect(row.mortgagePaid - prev).toBeLessThanOrEqual(1200 + 1e-6);
+      prev = row.mortgagePaid;
     }
   });
 
@@ -233,6 +239,192 @@ describe('simulate — mortgage redemptions', () => {
       'hybrid',
     ).rows;
     expect(rows[19].mortgagePaid).toBeGreaterThan(rows[10].mortgagePaid);
+  });
+});
+
+describe('simulate — redemption is continuous, not a five-year cycle', () => {
+  // Regression: firstEntregaYear used to be derived from the SURVIVING
+  // tranches, so draining the plan restarted the art. 4.o/3 clock and
+  // redemptions fired only once every five years — a visible sawtooth in the
+  // PPR balance. The clock runs from the plan's first entrega ever.
+  const cfg30 = cfg({ years: 30, mortgageStartYear: 3 });
+
+  it('redeems in every year once the plan is five years old', () => {
+    const rows = byId(simulate(cfg30), 'hybrid').rows;
+    const mature = rows.filter((r) => r.year >= 8);
+    for (const r of mature) {
+      expect(r.redeemedThisYear).toBeGreaterThan(0);
+    }
+  });
+
+  it('never leaves a five-year gap between redemptions', () => {
+    const rows = byId(simulate(cfg30), 'hybrid').rows;
+    const years = rows.filter((r) => r.redeemedThisYear > 0).map((r) => r.year);
+    for (let i = 1; i < years.length; i++) {
+      expect(years[i] - years[i - 1]).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('keeps the PPR balance monotonic rather than sawtoothing', () => {
+    // Once the plan is fully drainable the balance settles; it must not climb
+    // for four years and collapse on the fifth.
+    const rows = byId(simulate(cfg30), 'hybrid').rows.filter((r) => r.year >= 8);
+    for (const r of rows) {
+      expect(r.pprBalance).toBeLessThan(1);
+    }
+  });
+});
+
+describe('simulate — only net proceeds can pay an instalment', () => {
+  it('credits the mortgage with net, and redeems more than that gross', () => {
+    const h = byId(simulate(cfg({ years: 12, mortgageStartYear: 3 })), 'hybrid');
+    const grossRedeemed = h.rows.reduce((s, r) => s + r.redeemedThisYear, 0);
+    // gross = net credited to the mortgage + the tax withheld along the way
+    expect(grossRedeemed).toBeCloseTo(
+      h.final.mortgagePaidTotal + h.final.pprTaxDuringRedemptions,
+      6,
+    );
+    expect(grossRedeemed).toBeGreaterThan(h.final.mortgagePaidTotal);
+  });
+
+  it('never credits more mortgage than twelve instalments in a year', () => {
+    const rows = byId(
+      simulate(cfg({ years: 20, mortgageStartYear: 3, monthlyInstalment: 200 })),
+      'hybrid',
+    ).rows;
+    let prev = 0;
+    for (const r of rows) {
+      expect(r.mortgagePaid - prev).toBeLessThanOrEqual(2400 + 1e-6);
+      prev = r.mortgagePaid;
+    }
+  });
+});
+
+describe('simulate — cash flow is symmetric across scenarios', () => {
+  it('costs every scenario the same out of pocket when the freed salary is reinvested', () => {
+    // This is what makes the comparison fair: the ETF household pays the whole
+    // mortgage from salary; the hybrid household has part of it paid by the
+    // PPR and reinvests exactly that much salary instead.
+    const out = simulate(
+      cfg({ years: 25, mortgageStartYear: 3, reinvestRedemption: true }),
+    );
+    const etf = byId(out, 'etf').final;
+    const hybrid = byId(out, 'hybrid').final;
+
+    expect(etf.totalOutOfPocket).toBeCloseTo(
+      etf.totalContributed + etf.mortgageDueTotal,
+      6,
+    );
+    expect(hybrid.totalOutOfPocket).toBeCloseTo(etf.totalOutOfPocket, 6);
+  });
+
+  it('costs the hybrid less out of pocket when the freed salary is spent', () => {
+    const out = simulate(
+      cfg({ years: 25, mortgageStartYear: 3, reinvestRedemption: false }),
+    );
+    const etf = byId(out, 'etf').final;
+    const hybrid = byId(out, 'hybrid').final;
+    expect(hybrid.totalOutOfPocket).toBeLessThan(etf.totalOutOfPocket);
+    expect(etf.totalOutOfPocket - hybrid.totalOutOfPocket).toBeCloseTo(
+      hybrid.mortgagePaidTotal,
+      6,
+    );
+  });
+
+  it('reports reinvested freed salary per scenario, not from the global flag', () => {
+    // PPR-only ignores reinvestRedemption by design, so it must report zero
+    // even when the toggle is on. Reading the flag instead of the scenario
+    // showed a reinvestment row on a scenario that never reinvests.
+    const out = simulate(
+      cfg({ years: 25, mortgageStartYear: 3, reinvestRedemption: true }),
+    );
+    expect(byId(out, 'hybrid').final.freedSalaryReinvested).toBeGreaterThan(0);
+    expect(byId(out, 'ppr').final.freedSalaryReinvested).toBe(0);
+    expect(byId(out, 'etf').final.freedSalaryReinvested).toBe(0);
+  });
+
+  it('charges the ETF scenario the whole mortgage from salary', () => {
+    const etf = byId(
+      simulate(cfg({ years: 25, mortgageStartYear: 3 })),
+      'etf',
+    ).final;
+    expect(etf.mortgagePaidTotal).toBe(0);
+    expect(etf.mortgagePaidFromSalary).toBeCloseTo(etf.mortgageDueTotal, 6);
+  });
+});
+
+describe('simulate — without a mortgage', () => {
+  const noMortgage = (over = {}) =>
+    cfg({ hasMortgage: false, years: 25, currentAge: 30, ...over });
+
+  it('never redeems anything', () => {
+    for (const r of byId(simulate(noMortgage()), 'hybrid').rows) {
+      expect(r.redeemedThisYear).toBe(0);
+    }
+    expect(byId(simulate(noMortgage()), 'hybrid').final.mortgagePaidTotal).toBe(
+      0,
+    );
+  });
+
+  it('reports no mortgage due, so nothing is paid from salary either', () => {
+    const f = byId(simulate(noMortgage()), 'etf').final;
+    expect(f.mortgageDueTotal).toBe(0);
+    expect(f.mortgagePaidFromSalary).toBe(0);
+    expect(f.totalOutOfPocket).toBeCloseTo(f.totalContributed, 6);
+  });
+
+  it('penalises the exit when the participant is under 60 at the end', () => {
+    // age 30 + 25 years => 54 at the end, short of the art. 4.o/1 e) age
+    const h = byId(simulate(noMortgage()), 'hybrid').final;
+    expect(h.penalisedExit).toBe(true);
+    expect(h.benefitClawback).toBeGreaterThan(0);
+  });
+
+  it('allows a legal exit once the participant reaches 60', () => {
+    const h = byId(simulate(noMortgage({ years: 31 })), 'hybrid').final;
+    expect(h.penalisedExit).toBe(false);
+    expect(h.benefitClawback).toBe(0);
+  });
+
+  it('claws back every euro deducted, majorado 10% per year', () => {
+    const h = byId(simulate(noMortgage()), 'hybrid').final;
+    // the clawback always exceeds the raw benefits because of the majoração
+    expect(h.benefitClawback).toBeGreaterThan(h.irsBenefitTotal);
+  });
+
+  it('costs the hybrid dearly, because the mortgage was its whole tax route', () => {
+    const without = byId(simulate(noMortgage()), 'hybrid').final;
+    const with_ = byId(
+      simulate(cfg({ hasMortgage: true, years: 25, currentAge: 30 })),
+      'hybrid',
+    ).final;
+    expect(without.netWithBenefits).toBeLessThan(with_.netWithBenefits);
+    expect(without.penalisedExit).toBe(true);
+    expect(with_.penalisedExit).toBe(false);
+  });
+
+  it('can HELP the PPR-only scenario, which is not a contradiction', () => {
+    // Counter-intuitive but correct: with a mortgage, PPR-only drains the plan
+    // every year and SPENDS the proceeds, destroying the compounding. Without
+    // one, the plan compounds untouched for the whole horizon, and that beats
+    // the penalised exit. The mortgage route only pays off if you reinvest.
+    const without = byId(simulate(noMortgage()), 'ppr').final;
+    const with_ = byId(
+      simulate(cfg({ hasMortgage: true, years: 25, currentAge: 30 })),
+      'ppr',
+    ).final;
+    expect(without.netWithBenefits).toBeGreaterThan(with_.netWithBenefits);
+    // and it is still a bad outcome in absolute terms: penalised and clawed back
+    expect(without.penalisedExit).toBe(true);
+  });
+
+  it('leaves the pure ETF scenario untouched by the mortgage toggle', () => {
+    const a = byId(simulate(noMortgage()), 'etf').final.netValue;
+    const b = byId(
+      simulate(cfg({ hasMortgage: true, years: 25, currentAge: 30 })),
+      'etf',
+    ).final.netValue;
+    expect(a).toBeCloseTo(b, 6);
   });
 });
 
@@ -343,11 +535,24 @@ describe('simulate — benefit destination', () => {
 });
 
 describe('simulate — fees and drag', () => {
-  it('reduces the PPR balance when a tracking error is applied', () => {
-    const without = byId(simulate(cfg({ pprTrackingError: 0 })), 'ppr').final
-      .netValue;
-    const with26 = byId(simulate(cfg({ pprTrackingError: 2.6 })), 'ppr').final
-      .netValue;
+  it('reduces the PPR result when a tracking error is applied', () => {
+    // measured without a mortgage, so the PPR actually accumulates: with one,
+    // the plan is drained every year and its closing balance is zero either way
+    const base = { hasMortgage: false, years: 33 } as const;
+    const without = byId(simulate(cfg({ ...base, pprTrackingError: 0 })), 'ppr')
+      .final.netWithBenefits;
+    const with26 = byId(
+      simulate(cfg({ ...base, pprTrackingError: 2.6 })),
+      'ppr',
+    ).final.netWithBenefits;
+    expect(with26).toBeLessThan(without);
+  });
+
+  it('still bites the hybrid when there is a mortgage', () => {
+    const without = byId(simulate(cfg({ pprTrackingError: 0 })), 'hybrid').final
+      .netWithBenefits;
+    const with26 = byId(simulate(cfg({ pprTrackingError: 2.6 })), 'hybrid').final
+      .netWithBenefits;
     expect(with26).toBeLessThan(without);
   });
 

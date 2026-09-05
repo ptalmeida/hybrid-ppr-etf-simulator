@@ -12,6 +12,7 @@ export const DEFAULT_CONFIG: SimConfig = {
   pprFee: 0.75,
   pprTrackingError: 0,
   etfAnnualCost: 0,
+  hasMortgage: true,
   mortgageStartYear: 3,
   monthlyInstalment: 1000,
   benefitDestination: 'etf',

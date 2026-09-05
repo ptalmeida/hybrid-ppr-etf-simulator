@@ -17,6 +17,7 @@ export interface SimConfig {
   pprFee: number;
   pprTrackingError: number;
   etfAnnualCost: number;
+  hasMortgage: boolean;
   mortgageStartYear: number;
   monthlyInstalment: number;
   benefitDestination: BenefitDestination;
@@ -68,6 +69,12 @@ export interface ScenarioFinal {
   pprTaxDuringRedemptions: number;
   irsBenefitTotal: number;
   mortgagePaidTotal: number;
+  mortgageDueTotal: number;
+  mortgagePaidFromSalary: number;
+  freedSalaryReinvested: number;
+  totalOutOfPocket: number;
+  penalisedExit: boolean;
+  benefitClawback: number;
   netValue: number;
   netWithBenefits: number;
   totalContributed: number;

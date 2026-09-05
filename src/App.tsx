@@ -79,7 +79,17 @@ export default function App() {
         <main className="order-1 min-w-0 space-y-6 lg:order-2">
           <SummaryCards scenarios={output.scenarios} />
 
-          <RiskEquivalenceWarning />
+          {config.hasMortgage && (
+            <p className="rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm leading-relaxed text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+              A mesma prestação é devida em todos os cenários — a casa é a
+              mesma. No cenário só com {config.etfName} ela sai inteira do
+              salário; na estratégia híbrida parte dela é paga pelo{' '}
+              {config.pprName}
+              {config.reinvestRedemption
+                ? ', e essa folga do salário é investida no ETF. É por isso que a linha «Total» de «sai do seu bolso» é igual nos três cartões: a comparação é justa.'
+                : ', e essa folga do salário é gasta. Repare que o total que sai do bolso passa a ser menor na estratégia híbrida — está a comparar cenários que lhe custam valores diferentes.'}
+            </p>
+          )}
 
           <Card
             title="Evolução do património"
@@ -157,6 +167,7 @@ export default function App() {
             <Explanation steps={explanation} />
           </Card>
 
+          <RiskEquivalenceWarning />
           <WhatThisCannotPrice />
           <Disclaimer />
         </main>

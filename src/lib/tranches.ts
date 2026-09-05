@@ -2,8 +2,10 @@ import type { BracketSlice, EtfTaxMode, Product, Tranche } from './types';
 import {
   etfBracketLabel,
   etfRateForAge,
+  penalisedPprRateForAge,
   pprTaxOnProfit,
   PPR_FIRST_HALF_THRESHOLD,
+  PPR_LEGAL_EFFECTIVE_RATE,
   PPR_MIN_TRANCHE_AGE,
 } from './tax';
 
@@ -46,6 +48,16 @@ export interface RedeemOptions {
    * constant annual contribution always produces.
    */
   firstHalfShare?: number;
+  /**
+   * Year of the FIRST entrega ever made into the plan.
+   *
+   * Must be supplied by the caller from the full contribution history, NOT
+   * derived from the surviving tranches: art. 4.º/3 counts five years from
+   * "a data da primeira entrega", and redeeming does not rejuvenate the
+   * contract. Deriving it from what is left restarts the clock every time the
+   * plan is drained, which produces a spurious five-year on/off cycle.
+   */
+  firstEntregaYear: number;
 }
 
 export interface RedeemResult {
@@ -65,55 +77,62 @@ export interface RedeemResult {
  *    plan may be redeemed, provided entregas in the first half of the
  *    contract's life are at least 35% of the total.
  *
- * `cap` is the most that may be redeemed this year — 12 monthly instalments.
+ * `netTarget` is the instalment value still to be paid this year — normally 12
+ * monthly instalments. It is a NET target: tax is withheld on redemption, so
+ * only the net proceeds can actually settle an instalment. Redeeming €12 000
+ * gross does not pay €12 000 of mortgage.
+ *
  * Alínea g) only permits paying instalments as they fall due, never early
  * amortisation of capital, so there is nothing else to redeem against.
  */
 export function redeemPprFifo(
   tranches: Tranche[],
   currentYear: number,
-  cap: number,
+  netTarget: number,
   opts: RedeemOptions,
 ): RedeemResult {
-  if (cap <= 0) {
+  if (netTarget <= 0) {
     return { remaining: tranches, grossRedeemed: 0, tax: 0, netProceeds: 0 };
   }
 
-  const pprTranches = tranches.filter((t) => t.product === 'ppr');
-  const firstEntregaYear = pprTranches.length
-    ? Math.min(...pprTranches.map((t) => t.yearDeposited))
-    : Infinity;
   const firstHalfShare = opts.firstHalfShare ?? 0.5;
 
   const wholePlanEligible =
     opts.use35Rule &&
     firstHalfShare >= PPR_FIRST_HALF_THRESHOLD &&
-    currentYear - firstEntregaYear >= PPR_MIN_TRANCHE_AGE;
+    currentYear - opts.firstEntregaYear >= PPR_MIN_TRANCHE_AGE;
 
   const isEligible = (t: Tranche) =>
     t.product === 'ppr' &&
     (wholePlanEligible || currentYear - t.yearDeposited >= PPR_MIN_TRANCHE_AGE);
 
-  let budget = cap;
+  let netStillNeeded = netTarget;
   let grossRedeemed = 0;
   let tax = 0;
   const remaining: Tranche[] = [];
 
   // tranches are held oldest-first, so a straight walk is FIFO
   for (const t of tranches) {
-    if (budget <= 0 || !isEligible(t) || t.value <= 0) {
+    if (netStillNeeded <= 0 || !isEligible(t) || t.value <= 0) {
       remaining.push(t);
       continue;
     }
 
-    const take = Math.min(t.value, budget);
-    const share = take / t.value;
-    const principalTaken = t.principal * share;
-    const profitTaken = take - principalTaken;
+    // Tax is 8% of the PROFIT portion only, so each euro redeemed from this
+    // tranche yields `netPerGross` euros of spendable cash. Invert that to
+    // find the gross needed to cover what is still owed on the instalments.
+    const profitShare = Math.max(0, (t.value - t.principal) / t.value);
+    const netPerGross = 1 - PPR_LEGAL_EFFECTIVE_RATE * profitShare;
+    const grossNeeded =
+      netPerGross > 0 ? netStillNeeded / netPerGross : Number.POSITIVE_INFINITY;
+
+    const take = Math.min(t.value, grossNeeded);
+    const principalTaken = t.principal * (take / t.value);
+    const takeTax = pprTaxOnProfit(take - principalTaken);
 
     grossRedeemed += take;
-    tax += pprTaxOnProfit(profitTaken);
-    budget -= take;
+    tax += takeTax;
+    netStillNeeded -= take - takeTax;
 
     if (take < t.value) {
       remaining.push({
@@ -135,6 +154,18 @@ export function redeemPprFifo(
 export interface LiquidateOptions {
   etfTaxMode: EtfTaxMode;
   marginalRate: number;
+  /**
+   * How the PPR is cashed out at the end of the horizon.
+   *
+   * 'legal' — a situation art. 4.º DL 158/2002 allows (mortgage instalments,
+   * retirement, age 60+): 8% of the profit, any holding period.
+   *
+   * 'penalised' — redemption outside those situations: 21.5% on the art. 5.º/3
+   * taxable share, which falls with holding period (21.5% / 17.2% / 8.6%).
+   * The caller must separately apply the IRS benefit clawback, which this
+   * function cannot see.
+   */
+  pprRegime?: 'legal' | 'penalised';
 }
 
 export interface LiquidateResult {
@@ -161,7 +192,10 @@ export function liquidate(
     const profit = Math.max(0, t.value - t.principal);
 
     if (t.product === 'ppr') {
-      pprTax += pprTaxOnProfit(profit);
+      pprTax +=
+        opts.pprRegime === 'penalised'
+          ? profit * penalisedPprRateForAge(finalYear - t.yearDeposited)
+          : pprTaxOnProfit(profit);
       continue;
     }
 

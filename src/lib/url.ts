@@ -23,6 +23,7 @@ const KEYS: Record<keyof SimConfig, string> = {
   pprFee: 'pprf',
   pprTrackingError: 'pprte',
   etfAnnualCost: 'etfc',
+  hasMortgage: 'ch',
   mortgageStartYear: 'mstart',
   monthlyInstalment: 'minst',
   benefitDestination: 'bdest',
@@ -122,6 +123,7 @@ export function parseConfig(query: string): SimConfig {
     pprFee: num('pprFee'),
     pprTrackingError: num('pprTrackingError'),
     etfAnnualCost: num('etfAnnualCost'),
+    hasMortgage: bool('hasMortgage'),
     mortgageStartYear: num('mortgageStartYear'),
     monthlyInstalment: num('monthlyInstalment'),
     benefitDestination: pickEnum(

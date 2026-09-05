@@ -6,7 +6,13 @@ import type {
   Tranche,
   YearRow,
 } from './types';
-import { contributionForYear, irsBenefit, irsCapForAge } from './tax';
+import {
+  CLAWBACK_MAJORATION_PER_YEAR,
+  contributionForYear,
+  irsBenefit,
+  irsCapForAge,
+  PPR_LEGAL_EXIT_AGE,
+} from './tax';
 import {
   chargeFixedCost,
   growTranches,
@@ -95,10 +101,23 @@ function valueInHand(
 function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
   const etfNetRate = cfg.etfReturn - cfg.etfFee;
   const pprNetRate = cfg.pprReturn - cfg.pprFee - cfg.pprTrackingError;
-  const annualCap = cfg.monthlyInstalment * 12;
+  const annualInstalments = cfg.monthlyInstalment * 12;
+
+  /**
+   * Whether the PPR can be cashed out at the end under art. 4.º conditions.
+   *
+   * With a mortgage, alínea g) applies. Without one, the only condition this
+   * simulator can check is age: art. 4.º/1 e) allows redemption from 60. A
+   * participant who is still short of 60 at the end of the horizon would be
+   * redeeming OUTSIDE legal conditions, which is the expensive case.
+   */
+  const ageAtEnd = cfg.currentAge + cfg.years - 1;
+  const legalExit = cfg.hasMortgage || ageAtEnd >= PPR_LEGAL_EXIT_AGE;
 
   let tranches: Tranche[] = [];
   const entregas: { year: number; amount: number }[] = [];
+  /** Each year's IRS deduction, kept for the clawback calculation. */
+  const benefitYears: { year: number; amount: number }[] = [];
 
   let contributed = 0;
   let mortgagePaid = 0;
@@ -158,6 +177,9 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       const cap = irsCapForAge(age, cfg.irsBandsEnabled, cfg.irsBenefitCap);
       benefitThisYear = irsBenefit(contribution, cap);
       benefitTotal += benefitThisYear;
+      if (benefitThisYear > 0) {
+        benefitYears.push({ year, amount: benefitThisYear });
+      }
 
       if (policy.reinvests && cfg.benefitDestination === 'etf') {
         tranches.push({
@@ -178,14 +200,23 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
 
     // 5. redeem PPR tranches to pay mortgage instalments
     let redeemedThisYear = 0;
-    if (policy.primary === 'ppr' && year >= cfg.mortgageStartYear) {
-      const result = redeemPprFifo(tranches, year, annualCap, {
+    if (
+      policy.primary === 'ppr' &&
+      cfg.hasMortgage &&
+      year >= cfg.mortgageStartYear &&
+      entregas.length > 0
+    ) {
+      const result = redeemPprFifo(tranches, year, annualInstalments, {
         use35Rule: cfg.use35Rule,
         firstHalfShare: firstHalfShare(entregas),
+        // the plan's own first entrega, from the full history. Redeeming does
+        // not rejuvenate the contract, so this must not come from what is left.
+        firstEntregaYear: entregas[0].year,
       });
       tranches = result.remaining;
       redeemedThisYear = result.grossRedeemed;
-      mortgagePaid += result.grossRedeemed;
+      // only the NET proceeds can settle an instalment; the tax is withheld
+      mortgagePaid += result.netProceeds;
       taxPaid += result.tax;
 
       if (policy.reinvests && cfg.reinvestRedemption && result.netProceeds > 0) {
@@ -222,12 +253,42 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
     });
   }
 
+  const holdsPpr = tranches.some((t) => t.product === 'ppr');
+  const penalisedExit = !legalExit && holdsPpr;
+
   const final = liquidate(tranches, cfg.years, {
     etfTaxMode: cfg.etfTaxMode,
     marginalRate: cfg.marginalRate,
+    pprRegime: penalisedExit ? 'penalised' : 'legal',
   });
 
-  const totalTax = final.etfTax + final.pprTax + taxPaid;
+  // EBF art. 21.º: redeeming outside legal conditions voids the deduction.
+  // Every euro deducted goes back, majorado em 10% por cada ano decorrido.
+  const benefitClawback = penalisedExit
+    ? benefitYears.reduce(
+        (sum, b) => sum + b.amount * (1 + CLAWBACK_MAJORATION_PER_YEAR * (cfg.years - b.year)),
+        0,
+      )
+    : 0;
+
+  // Mortgage instalments falling due inside the horizon. Identical for every
+  // scenario, which is what makes the comparison fair: the household owes the
+  // same mortgage whichever way it invests.
+  const mortgageDueTotal = cfg.hasMortgage
+    ? annualInstalments * Math.max(0, cfg.years - cfg.mortgageStartYear + 1)
+    : 0;
+  const mortgagePaidFromSalary = Math.max(0, mortgageDueTotal - mortgagePaid);
+
+  // What actually leaves the household's pocket: the contributions, the
+  // instalments the PPR did not cover, and — when the freed salary is
+  // reinvested — that freed salary too. When it is reinvested this comes to
+  // exactly `contributed + mortgageDueTotal` for every scenario.
+  const reinvestedFreedSalary =
+    policy.reinvests && cfg.reinvestRedemption ? mortgagePaid : 0;
+  const totalOutOfPocket =
+    contributed + mortgagePaidFromSalary + reinvestedFreedSalary;
+
+  const totalTax = final.etfTax + final.pprTax + taxPaid + benefitClawback;
   const totalGain = final.gross + mortgagePaid - contributed;
 
   return {
@@ -241,9 +302,17 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       pprTaxDuringRedemptions: taxPaid,
       irsBenefitTotal: benefitTotal,
       mortgagePaidTotal: mortgagePaid,
-      netValue: final.net,
+      mortgageDueTotal,
+      mortgagePaidFromSalary,
+      freedSalaryReinvested: reinvestedFreedSalary,
+      totalOutOfPocket,
+      penalisedExit,
+      benefitClawback,
+      netValue: final.net - benefitClawback,
       netWithBenefits:
-        final.net + valueInHand(policy, cfg, benefitTotal, mortgagePaid),
+        final.net -
+        benefitClawback +
+        valueInHand(policy, cfg, benefitTotal, mortgagePaid),
       totalContributed: contributed,
       effectiveTaxRate: totalGain > 0 ? Math.min(1, totalTax / totalGain) : 0,
       bracketBreakdown: final.bracketBreakdown,

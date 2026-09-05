@@ -119,6 +119,18 @@ export function ConfigPanel({
 
       <Card title="Crédito habitação">
         <div className="space-y-4">
+          <ToggleField
+            id="hasMortgage"
+            label="Vou ter crédito habitação"
+            value={config.hasMortgage}
+            onChange={(hasMortgage) => onChange({ hasMortgage })}
+            hint={
+              config.hasMortgage
+                ? undefined
+                : `Sem crédito habitação não há resgates a 8%. O ${config.pprName} só sai em condições legais a partir dos 60 anos; antes disso paga 21,5% / 17,2% / 8,6% conforme o prazo e devolve os benefícios de IRS majorados em 10% por ano.`
+            }
+          />
+          {config.hasMortgage && (
           <NumberField
             id="mortgageStartYear"
             label="Ano em que começa o crédito"
@@ -129,6 +141,8 @@ export function ConfigPanel({
             onChange={(mortgageStartYear) => onChange({ mortgageStartYear })}
             hint="Contado a partir de hoje. Antes deste ano não há resgates."
           />
+          )}
+          {config.hasMortgage && (
           <NumberField
             id="monthlyInstalment"
             label="Prestação mensal"
@@ -138,8 +152,9 @@ export function ConfigPanel({
             max={BOUNDS.monthlyInstalment[1]}
             value={config.monthlyInstalment}
             onChange={(monthlyInstalment) => onChange({ monthlyInstalment })}
-            hint="Limita o resgate anual do PPR a 12 prestações, porque a lei só permite pagar prestações à medida que se vencem."
+            hint="Limita o resgate anual do PPR a 12 prestações, porque a lei só permite pagar prestações à medida que se vencem. Como o imposto é retido no resgate, é preciso resgatar um pouco mais do que a prestação para a cobrir."
           />
+          )}
         </div>
       </Card>
 

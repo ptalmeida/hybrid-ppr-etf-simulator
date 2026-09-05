@@ -49,6 +49,9 @@ export const CLAWBACK_MAJORATION_PER_YEAR = 0.1;
 /** Minimum age of an entrega before it may be redeemed. DL 158/2002 art. 4.º/2. */
 export const PPR_MIN_TRANCHE_AGE = 5;
 
+/** DL 158/2002 art. 4.º/1 e): redemption allowed from this age. */
+export const PPR_LEGAL_EXIT_AGE = 60;
+
 /** DL 158/2002 art. 4.º/3: first-half share needed to redeem the whole plan. */
 export const PPR_FIRST_HALF_THRESHOLD = 0.35;
 

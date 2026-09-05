@@ -79,12 +79,27 @@ export function buildExplanation(
           `direto no ${cfg.etfName}.`,
     });
   } else {
+    const ageAtEnd = cfg.currentAge + cfg.years - 1;
     steps.push({
-      title: '3. Nesta configuração não há resgates',
-      body:
-        `O crédito começa no ano ${cfg.mortgageStartYear}, fora do horizonte de ` +
-        `${cfg.years} anos simulados, ou não há saldo elegível para resgatar. Sem ` +
-        `resgates, o ${cfg.pprName} é liquidado apenas no fim, também a 8%.`,
+      title: cfg.hasMortgage
+        ? '3. Nesta configuração não há resgates'
+        : '3. Sem crédito habitação, a porta de saída fecha-se',
+      body: cfg.hasMortgage
+        ? `O crédito começa no ano ${cfg.mortgageStartYear}, fora do horizonte de ` +
+          `${cfg.years} anos simulados, ou não há saldo elegível para resgatar. Sem ` +
+          `resgates, o ${cfg.pprName} é liquidado apenas no fim, também a 8%.`
+        : hybrid.final.penalisedExit
+          ? `Sem crédito habitação não existe a alínea g), e no fim do horizonte ` +
+            `terá ${ageAtEnd} anos — ainda aquém dos 60 que a alínea e) exige. O ` +
+            `resgate é feito FORA das condições legais: 21,5% do rendimento até 5 ` +
+            `anos, 17,2% entre 5 e 8 e 8,6% acima de 8, e ainda devolve ` +
+            `${formatEur(hybrid.final.benefitClawback)} de benefícios de IRS ` +
+            `majorados em 10% por cada ano decorrido. É este o custo real de ` +
+            `entrar num PPR sem ter como sair dele.`
+          : `Sem crédito habitação não há resgates pela alínea g), mas no fim do ` +
+            `horizonte terá ${ageAtEnd} anos, o que já permite o resgate pela ` +
+            `alínea e). O ${cfg.pprName} é liquidado a 8%, sem devolução de ` +
+            `benefícios.`,
     });
   }
 
