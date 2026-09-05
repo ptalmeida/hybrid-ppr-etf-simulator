@@ -58,6 +58,25 @@ export interface YearRow {
   netWithBenefits: number;
 }
 
+/** One tranche redeemed in one year — a row of the audit ledger. */
+export interface RedemptionEntry {
+  /** Year the redemption happened. */
+  year: number;
+  /** Participant's age that year. */
+  age: number;
+  /** Year the redeemed entrega was made. */
+  entregaYear: number;
+  /** Whole years between the two. Must be >= 5 for the deduction to survive. */
+  ageYears: number;
+  gross: number;
+  principal: number;
+  profit: number;
+  tax: number;
+  net: number;
+  /** IRS deduction handed back, non-zero only for entregas under five years. */
+  clawback: number;
+}
+
 export interface BracketSlice {
   bracket: string;
   ratePct: number;
@@ -95,6 +114,8 @@ export interface ScenarioResult {
   id: ScenarioId;
   label: string;
   rows: YearRow[];
+  /** Every PPR redemption, oldest first. Empty for the ETF scenario. */
+  redemptions: RedemptionEntry[];
   final: ScenarioFinal;
 }
 

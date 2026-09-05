@@ -1,4 +1,5 @@
 import type {
+  RedemptionEntry,
   ScenarioId,
   ScenarioResult,
   SimConfig,
@@ -162,6 +163,8 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
   let taxPaid = 0;
   /** IRS deductions handed back for redeeming entregas younger than 5 years. */
   let redemptionClawback = 0;
+  /** Audit trail: every tranche redeemed, in the year it was redeemed. */
+  const redemptions: RedemptionEntry[] = [];
   /** Benefit earned last year, paid out this year and added to the PPR. */
   let pendingPprBenefit = 0;
 
@@ -282,12 +285,32 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       // ("e", not "ou"). Redeeming a young one hands the benefit back,
       // majorado 10% por cada ano decorrido since it was claimed.
       for (const slice of result.slices) {
-        if (slice.ageYears >= PPR_MIN_TRANCHE_AGE) continue;
-        const claimed = benefitYears.find((b) => b.year === slice.yearDeposited);
-        if (!claimed) continue;
-        const returned = claimed.amount * slice.fraction;
-        redemptionClawback +=
-          returned * (1 + CLAWBACK_MAJORATION_PER_YEAR * slice.ageYears);
+        let clawback = 0;
+        if (slice.ageYears < PPR_MIN_TRANCHE_AGE) {
+          const claimed = benefitYears.find(
+            (b) => b.year === slice.yearDeposited,
+          );
+          if (claimed) {
+            clawback =
+              claimed.amount *
+              slice.fraction *
+              (1 + CLAWBACK_MAJORATION_PER_YEAR * slice.ageYears);
+            redemptionClawback += clawback;
+          }
+        }
+
+        redemptions.push({
+          year,
+          age,
+          entregaYear: slice.yearDeposited,
+          ageYears: slice.ageYears,
+          gross: slice.gross,
+          principal: slice.principal,
+          profit: slice.profit,
+          tax: slice.tax,
+          net: slice.net,
+          clawback,
+        });
       }
 
       if (policy.reinvests && cfg.reinvestRedemption && result.netProceeds > 0) {
@@ -376,6 +399,7 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
     id: policy.id,
     label: labelFor(policy.id, cfg),
     rows,
+    redemptions,
     final: {
       grossValue: final.gross,
       etfTax: final.etfTax,

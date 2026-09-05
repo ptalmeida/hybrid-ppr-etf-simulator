@@ -311,6 +311,82 @@ describe('simulate — only net proceeds can pay an instalment', () => {
   });
 });
 
+describe('simulate — the redemption ledger', () => {
+  const out = simulate(cfg({ years: 30, mortgageStartYear: 3 }));
+  const hybrid = byId(out, 'hybrid');
+
+  it('is empty for a scenario that never touches a PPR', () => {
+    expect(byId(out, 'etf').redemptions).toEqual([]);
+  });
+
+  it('records every redemption', () => {
+    const yearsWithRedemptions = hybrid.rows.filter(
+      (r) => r.redeemedThisYear > 0,
+    ).length;
+    const yearsInLedger = new Set(hybrid.redemptions.map((e) => e.year)).size;
+    expect(yearsInLedger).toBe(yearsWithRedemptions);
+  });
+
+  it('sums to the mortgage actually paid', () => {
+    const net = hybrid.redemptions.reduce((s, e) => s + e.net, 0);
+    expect(net).toBeCloseTo(hybrid.final.mortgagePaidTotal, 6);
+  });
+
+  it('sums to the tax actually charged on redemptions', () => {
+    const tax = hybrid.redemptions.reduce((s, e) => s + e.tax, 0);
+    expect(tax).toBeCloseTo(hybrid.final.pprTaxDuringRedemptions, 6);
+  });
+
+  it('matches each year row', () => {
+    for (const row of hybrid.rows) {
+      const gross = hybrid.redemptions
+        .filter((e) => e.year === row.year)
+        .reduce((s, e) => s + e.gross, 0);
+      expect(gross).toBeCloseTo(row.redeemedThisYear, 6);
+    }
+  });
+
+  it('balances gross into principal, profit and tax on every row', () => {
+    for (const e of hybrid.redemptions) {
+      expect(e.principal + e.profit).toBeCloseTo(e.gross, 6);
+      expect(e.net).toBeCloseTo(e.gross - e.tax, 6);
+      expect(e.tax).toBeCloseTo(e.profit * 0.08, 6);
+    }
+  });
+
+  it('only ever redeems entregas at least five years old by default', () => {
+    for (const e of hybrid.redemptions) {
+      expect(e.ageYears).toBeGreaterThanOrEqual(5);
+      expect(e.clawback).toBe(0);
+    }
+  });
+
+  it('records the clawback when young entregas are redeemed', () => {
+    const young = byId(
+      simulate(
+        cfg({ years: 30, mortgageStartYear: 3, redeemYoungEntregas: true }),
+      ),
+      'hybrid',
+    );
+    const under5 = young.redemptions.filter((e) => e.ageYears < 5);
+    expect(under5.length).toBeGreaterThan(0);
+    expect(under5.every((e) => e.clawback > 0)).toBe(true);
+    expect(
+      young.redemptions.reduce((s, e) => s + e.clawback, 0),
+    ).toBeCloseTo(young.final.benefitClawback, 6);
+  });
+
+  it('is ordered oldest entrega first within each year', () => {
+    for (const year of new Set(hybrid.redemptions.map((e) => e.year))) {
+      const inYear = hybrid.redemptions.filter((e) => e.year === year);
+      const sorted = [...inYear].sort((a, b) => a.entregaYear - b.entregaYear);
+      expect(inYear.map((e) => e.entregaYear)).toEqual(
+        sorted.map((e) => e.entregaYear),
+      );
+    }
+  });
+});
+
 describe('simulate — cash flow is symmetric across scenarios', () => {
   it('costs every scenario the same out of pocket when the freed salary is reinvested', () => {
     // This is what makes the comparison fair: the ETF household pays the whole

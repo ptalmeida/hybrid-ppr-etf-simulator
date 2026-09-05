@@ -8,6 +8,7 @@ import { SummaryCards } from './components/SummaryCards';
 import { Explanation } from './components/Explanation';
 import { Card } from './components/Card';
 import { ScaleToggle } from './components/ScaleToggle';
+import { RedemptionLedger } from './components/RedemptionLedger';
 import {
   Disclaimer,
   LegalityNote,
@@ -213,6 +214,11 @@ export default function App() {
           >
             <BracketBar slices={hybrid.final.bracketBreakdown} />
           </Card>
+
+          <RedemptionLedger
+            entries={hybrid.redemptions}
+            pprName={config.pprName}
+          />
 
           <Card
             title="Como funciona, passo a passo"

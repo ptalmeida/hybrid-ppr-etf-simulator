@@ -66,13 +66,22 @@ export interface RedeemOptions {
   firstEntregaYear: number;
 }
 
-/** One tranche consumed by a redemption, for the caller's clawback maths. */
+/** One tranche consumed by a redemption. Feeds the clawback maths and the ledger. */
 export interface RedeemedSlice {
   yearDeposited: number;
   /** Whole years between the entrega and this redemption. */
   ageYears: number;
   /** Share of that tranche's remaining value taken, 0..1. */
   fraction: number;
+  /** Gross amount taken out of the plan. */
+  gross: number;
+  /** Capital portion of `gross`, which is not taxed. */
+  principal: number;
+  /** Gain portion of `gross`, taxed at 8%. */
+  profit: number;
+  tax: number;
+  /** What actually reached the instalment. */
+  net: number;
 }
 
 export interface RedeemResult {
@@ -160,6 +169,11 @@ export function redeemPprFifo(
       yearDeposited: t.yearDeposited,
       ageYears: currentYear - t.yearDeposited,
       fraction: take / t.value,
+      gross: take,
+      principal: principalTaken,
+      profit: take - principalTaken,
+      tax: takeTax,
+      net: take - takeTax,
     });
 
     if (take < t.value) {

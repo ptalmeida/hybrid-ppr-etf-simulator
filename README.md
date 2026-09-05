@@ -19,7 +19,9 @@ A híbrida não ganha sempre. Uma comissão de gestão alta, um desvio face ao
 para a pôr atrás — e o simulador mostra-o.
 
 Toda a configuração vive na query string, por isso qualquer resultado se partilha
-com um link.
+com um link. O «extrato dos resgates» lista movimento a movimento que entrega foi
+resgatada em que ano, com que antiguidade e com que imposto — e pode ser copiado
+em CSV para conferir as contas por fora.
 
 ## Correr localmente
 
@@ -31,7 +33,7 @@ npm run dev
 Outros comandos:
 
 ```bash
-npm test          # 170 testes da lógica fiscal
+npm test          # 179 testes da lógica fiscal
 npm run build     # build de produção para dist/
 ```
 
