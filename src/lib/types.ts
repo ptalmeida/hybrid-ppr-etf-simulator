@@ -99,6 +99,11 @@ export interface ScenarioResult {
 }
 
 export interface SimOutput {
-  scenarios: ScenarioResult[];
+  scenarios: ScenarioResult[]; // always [etf, hybrid]
   breakEvenYear: number | null;
+  /**
+   * Last year a PPR entrega can still be redeemed through alínea g), i.e. the
+   * last year it is worth contributing at all. Null when there is no mortgage.
+   */
+  lastUsefulPprYear: number | null;
 }
