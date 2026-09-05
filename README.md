@@ -31,7 +31,7 @@ npm run dev
 Outros comandos:
 
 ```bash
-npm test          # 120 testes da lógica fiscal
+npm test          # 132 testes da lógica fiscal
 npm run build     # build de produção para dist/
 ```
 
@@ -60,6 +60,7 @@ link contenha o resultado inteiro.
 | Resgate do PPR para prestações de crédito habitação | DL 158/2002 art. 4.º/1 g) |
 | Cada entrega resgatável 5 anos depois | DL 158/2002 art. 4.º/2 |
 | Regra dos 35%: resgate total 5 anos após a primeira entrega | DL 158/2002 art. 4.º/3 |
+| Resgate pela alínea g) só enquanto o crédito durar; depois, só aos 60 | DL 158/2002 art. 4.º/1 e) e g) |
 | Resgate em condições legais: 2/5 do rendimento a 20% (8% efetivo) | EBF art. 21.º/3 |
 | Fora das condições legais: 21,5% / 17,2% / 8,6% | EBF art. 21.º, CIRS art. 5.º/3 |
 | Dedução à coleta: 20% até 400 €/350 €/300 € por idade | EBF art. 21.º |
@@ -72,6 +73,11 @@ Duas notas sobre pontos onde as comparações publicadas costumam errar:
   e só compensa com taxa marginal inferior a 28%.
 - **O resgate em condições legais é 8% independentemente do prazo.** A escada
   21,5% / 17,2% / 8,6% é a das situações *fora* das condições legais.
+- **A regra dos 35% não é um requisito para resgatar.** O art. 4.º/2 permite
+  sempre resgatar cada entrega assim que *essa* entrega faz cinco anos. O art.
+  4.º/3 apenas acrescenta a possibilidade de resgatar a totalidade cinco anos
+  após a primeira entrega. A vigência do contrato conta-se da primeira entrega
+  até ao resgate, não até à última entrega.
 
 ## O que o simulador não modela
 

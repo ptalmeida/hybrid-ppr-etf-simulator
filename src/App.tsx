@@ -10,7 +10,9 @@ import { Card } from './components/Card';
 import { ScaleToggle } from './components/ScaleToggle';
 import {
   Disclaimer,
+  LegalityNote,
   RiskEquivalenceWarning,
+  StrandedPprWarning,
   WhatThisCannotPrice,
 } from './components/Callouts';
 import { WealthChart } from './components/charts/WealthChart';
@@ -31,6 +33,21 @@ export default function App() {
 
   const etf = output.scenarios.find((s) => s.id === 'etf')!;
   const hybrid = output.scenarios.find((s) => s.id === 'hybrid')!;
+
+  // How much of the instalment the PPR actually covers. Raising the instalment
+  // beyond what the PPR can supply changes nothing, and the panel says so.
+  const coverage = useMemo(() => {
+    const annualDue = config.monthlyInstalment * 12;
+    const years = hybrid.rows.filter((r) => r.redeemedThisYear > 0).length;
+    if (!config.hasMortgage || annualDue <= 0 || years === 0) return null;
+    const avgPerYear = hybrid.final.mortgagePaidTotal / years;
+    return {
+      avgPerYear,
+      annualDue,
+      share: avgPerYear / annualDue,
+      contributedPerYear: hybrid.final.totalContributed / config.years,
+    };
+  }, [config, hybrid]);
 
   const copyLink = async () => {
     try {
@@ -79,11 +96,23 @@ export default function App() {
             onReset={reset}
             onCopyLink={copyLink}
             copied={copied}
+            coverage={coverage}
           />
         </aside>
 
         <main className="order-1 min-w-0 space-y-6 lg:order-2">
           <SummaryCards scenarios={output.scenarios} />
+
+          {hybrid.final.pprAfterMortgageEnds &&
+            hybrid.final.mortgageEndYear !== null && (
+              <StrandedPprWarning
+                pprName={config.pprName}
+                mortgageEndYear={hybrid.final.mortgageEndYear}
+                ageAtMortgageEnd={
+                  config.currentAge + hybrid.final.mortgageEndYear - 1
+                }
+              />
+            )}
 
           {config.hasMortgage && (
             <p className="rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm leading-relaxed text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
@@ -173,6 +202,7 @@ export default function App() {
             <Explanation steps={explanation} />
           </Card>
 
+          {config.hasMortgage && <LegalityNote pprName={config.pprName} />}
           <RiskEquivalenceWarning />
           <WhatThisCannotPrice />
           <Disclaimer />

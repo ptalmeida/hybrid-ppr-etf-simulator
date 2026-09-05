@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { simulate } from './engine';
+import { firstHalfShare, simulate } from './engine';
 import { DEFAULT_CONFIG } from './defaults';
 import type { ScenarioId, SimConfig, SimOutput } from './types';
 
@@ -350,6 +350,151 @@ describe('simulate — cash flow is symmetric across scenarios', () => {
     ).final;
     expect(etf.mortgagePaidTotal).toBe(0);
     expect(etf.mortgagePaidFromSalary).toBeCloseTo(etf.mortgageDueTotal, 6);
+  });
+});
+
+describe('firstHalfShare — art. 4.º/3', () => {
+  const uniform = (from: number, to: number) =>
+    Array.from({ length: to - from + 1 }, (_, i) => ({
+      year: from + i,
+      amount: 2000,
+    }));
+
+  it('gives about half for a regular annual contribution', () => {
+    // the ordinary case: the 35% test is comfortably met
+    expect(firstHalfShare(uniform(1, 20), 20)).toBeGreaterThan(0.45);
+    expect(firstHalfShare(uniform(1, 20), 20)).toBeLessThan(0.6);
+  });
+
+  it('measures the contract to the redemption date, not the last entrega', () => {
+    // Contributions stop in year 10 but redemption happens in year 30, so the
+    // midpoint is year 15.5 and EVERY entrega falls in the first half.
+    // Measuring to the last entrega would put the midpoint at 5.5 and report
+    // roughly half instead.
+    expect(firstHalfShare(uniform(1, 10), 30)).toBeCloseTo(1, 10);
+  });
+
+  it('still passes for a plan opened late but funded regularly', () => {
+    // vigência starts at the FIRST entrega, so a plan opened in year 16 and
+    // funded to year 20 still has half its money in its own first half
+    expect(firstHalfShare(uniform(16, 20), 20)).toBeGreaterThan(0.35);
+  });
+
+  it('fails only when an old plan is back-loaded', () => {
+    // a token amount opens the plan, then the real money goes in at the end.
+    // This is the one realistic way to fail the test.
+    const backLoaded = [
+      { year: 1, amount: 100 },
+      { year: 19, amount: 10000 },
+      { year: 20, amount: 10000 },
+    ];
+    expect(firstHalfShare(backLoaded, 20)).toBeLessThan(0.35);
+  });
+
+  it('returns zero for an empty history', () => {
+    expect(firstHalfShare([], 10)).toBe(0);
+  });
+});
+
+describe('simulate — the mortgage has a term', () => {
+  it('stops redeeming once the mortgage is paid off', () => {
+    const rows = byId(
+      simulate(cfg({ years: 30, mortgageStartYear: 3, mortgageYears: 10 })),
+      'hybrid',
+    ).rows;
+    // mortgage runs years 3..12
+    expect(rows[11].redeemedThisYear).toBeGreaterThan(0); // year 12
+    for (const r of rows.filter((r) => r.year > 12)) {
+      expect(r.redeemedThisYear).toBe(0);
+    }
+  });
+
+  it('only counts instalments due inside the mortgage term', () => {
+    const f = byId(
+      simulate(
+        cfg({
+          years: 30,
+          mortgageStartYear: 3,
+          mortgageYears: 10,
+          monthlyInstalment: 1000,
+        }),
+      ),
+      'etf',
+    ).final;
+    expect(f.mortgageDueTotal).toBe(12000 * 10);
+  });
+
+  it('does not count instalments falling outside the horizon', () => {
+    const f = byId(
+      simulate(
+        cfg({
+          years: 10,
+          mortgageStartYear: 3,
+          mortgageYears: 30,
+          monthlyInstalment: 1000,
+        }),
+      ),
+      'etf',
+    ).final;
+    // mortgage would run to year 32, but only years 3..10 are simulated
+    expect(f.mortgageDueTotal).toBe(12000 * 8);
+  });
+
+  it('strands the PPR when the mortgage ends before the participant is 60', () => {
+    // age 30, mortgage runs years 3..12, so age 41 when it ends
+    const h = byId(
+      simulate(
+        cfg({
+          currentAge: 30,
+          years: 25,
+          mortgageStartYear: 3,
+          mortgageYears: 10,
+        }),
+      ),
+      'hybrid',
+    ).final;
+    expect(h.pprAfterMortgageEnds).toBe(true);
+    expect(h.penalisedExit).toBe(true);
+  });
+
+  it('does not strand it when the mortgage outlasts the horizon', () => {
+    const h = byId(
+      simulate(
+        cfg({
+          currentAge: 30,
+          years: 25,
+          mortgageStartYear: 3,
+          mortgageYears: 30,
+        }),
+      ),
+      'hybrid',
+    ).final;
+    expect(h.pprAfterMortgageEnds).toBe(false);
+    expect(h.penalisedExit).toBe(false);
+  });
+
+  it('does not strand it when the participant reaches 60 anyway', () => {
+    // mortgage ends at age 61, past the art. 4.o/1 e) threshold
+    const h = byId(
+      simulate(
+        cfg({
+          currentAge: 50,
+          years: 25,
+          mortgageStartYear: 3,
+          mortgageYears: 10,
+        }),
+      ),
+      'hybrid',
+    ).final;
+    expect(h.pprAfterMortgageEnds).toBe(false);
+  });
+
+  it('reports the year the mortgage ends', () => {
+    const f = byId(
+      simulate(cfg({ years: 30, mortgageStartYear: 3, mortgageYears: 10 })),
+      'hybrid',
+    ).final;
+    expect(f.mortgageEndYear).toBe(12);
   });
 });
 

@@ -25,6 +25,7 @@ const KEYS: Record<keyof SimConfig, string> = {
   etfAnnualCost: 'etfc',
   hasMortgage: 'ch',
   mortgageStartYear: 'mstart',
+  mortgageYears: 'mlen',
   monthlyInstalment: 'minst',
   benefitDestination: 'bdest',
   reinvestRedemption: 'rred',
@@ -125,6 +126,7 @@ export function parseConfig(query: string): SimConfig {
     etfAnnualCost: num('etfAnnualCost'),
     hasMortgage: bool('hasMortgage'),
     mortgageStartYear: num('mortgageStartYear'),
+    mortgageYears: num('mortgageYears'),
     monthlyInstalment: num('monthlyInstalment'),
     benefitDestination: pickEnum(
       read('benefitDestination') ?? '',

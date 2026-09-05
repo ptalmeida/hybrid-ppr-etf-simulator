@@ -19,6 +19,7 @@ export interface SimConfig {
   etfAnnualCost: number;
   hasMortgage: boolean;
   mortgageStartYear: number;
+  mortgageYears: number;
   monthlyInstalment: number;
   benefitDestination: BenefitDestination;
   reinvestRedemption: boolean;
@@ -74,6 +75,8 @@ export interface ScenarioFinal {
   freedSalaryReinvested: number;
   totalOutOfPocket: number;
   penalisedExit: boolean;
+  mortgageEndYear: number | null;
+  pprAfterMortgageEnds: boolean;
   benefitClawback: number;
   netValue: number;
   netWithBenefits: number;

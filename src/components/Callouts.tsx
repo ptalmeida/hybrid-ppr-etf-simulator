@@ -58,6 +58,83 @@ export function WhatThisCannotPrice() {
   );
 }
 
+/**
+ * Shown when the mortgage finishes before the participant turns 60, which
+ * closes the only cheap exit the PPR had.
+ */
+export function StrandedPprWarning({
+  pprName,
+  mortgageEndYear,
+  ageAtMortgageEnd,
+}: {
+  pprName: string;
+  mortgageEndYear: number;
+  ageAtMortgageEnd: number;
+}) {
+  return (
+    <div className="flex gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/40">
+      <AlertTriangle
+        size={18}
+        className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-500"
+      />
+      <div className="space-y-2 text-sm leading-relaxed text-amber-900 dark:text-amber-200">
+        <p className="font-semibold">
+          O crédito acaba no ano {mortgageEndYear}, quando tiver{' '}
+          {ageAtMortgageEnd} anos — e a porta de saída fecha-se.
+        </p>
+        <p>
+          A alínea g) só permite resgatar o {pprName} enquanto houver prestações
+          por pagar. Terminado o crédito, e ainda sem 60 anos, o saldo que
+          continuar no {pprName} fica sem saída barata: resgatá-lo antes disso
+          custa 21,5% / 17,2% / 8,6% conforme o prazo, mais a devolução dos
+          benefícios de IRS majorados em 10% por cada ano.
+        </p>
+        <p>
+          É a resposta à pergunta óbvia: continuar a reforçar o {pprName} depois
+          de o crédito acabar não tem como compensar, a não ser que conte mesmo
+          deixar o dinheiro lá até aos 60.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Answers the question every reader of the rules eventually asks: does the
+ * 35% condition block this strategy? It does not.
+ */
+export function LegalityNote({ pprName }: { pprName: string }) {
+  return (
+    <div className="flex gap-3 rounded-xl border border-slate-200 bg-slate-100 p-4 dark:border-slate-800 dark:bg-slate-900">
+      <Info size={18} className="mt-0.5 shrink-0 text-slate-500" />
+      <div className="space-y-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+        <p className="font-semibold">
+          A regra dos 35% não impede esta estratégia
+        </p>
+        <p>
+          O art. 4.º/2 do DL 158/2002 permite resgatar cada entrega assim que{' '}
+          <em>essa</em> entrega faz cinco anos. Isto vale sempre, independentemente
+          da regra dos 35%.
+        </p>
+        <p>
+          O art. 4.º/3 é um acréscimo, não um requisito: se as entregas feitas na
+          primeira metade da vigência do contrato representarem pelo menos 35% do
+          total, pode resgatar a <strong>totalidade</strong> cinco anos após a
+          primeira entrega, sem esperar cinco anos por cada reforço.
+        </p>
+        <p>
+          A vigência conta-se da primeira entrega até ao momento do resgate. Com
+          entregas anuais regulares essa fração ronda os 50%, pelo que a condição
+          se verifica com folga. Só falha se abrir o {pprName} com um valor
+          simbólico e concentrar as entregas perto do fim — nesse caso continua a
+          poder resgatar, mas entrega a entrega, à medida que cada uma faz cinco
+          anos.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function Disclaimer() {
   return (
     <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">

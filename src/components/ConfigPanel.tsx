@@ -3,7 +3,16 @@ import { NumberField, SelectField, TextField, ToggleField } from './Field';
 import { AdvancedSettings } from './AdvancedSettings';
 import { Card } from './Card';
 import { BOUNDS, DEFAULT_CONFIG, MAX_NAME_LENGTH } from '../lib/defaults';
+import { formatEur, formatPct } from '../lib/format';
 import type { SimConfig } from '../lib/types';
+
+/** How much of the instalment the PPR actually manages to cover. */
+export interface Coverage {
+  avgPerYear: number;
+  annualDue: number;
+  share: number;
+  contributedPerYear: number;
+}
 
 interface Props {
   config: SimConfig;
@@ -11,6 +20,7 @@ interface Props {
   onReset: () => void;
   onCopyLink: () => void;
   copied: boolean;
+  coverage: Coverage | null;
 }
 
 export function ConfigPanel({
@@ -19,6 +29,7 @@ export function ConfigPanel({
   onReset,
   onCopyLink,
   copied,
+  coverage,
 }: Props) {
   const isDefault =
     JSON.stringify(config) === JSON.stringify(DEFAULT_CONFIG);
@@ -144,6 +155,18 @@ export function ConfigPanel({
           )}
           {config.hasMortgage && (
           <NumberField
+            id="mortgageYears"
+            label="Duração do crédito"
+            suffix="anos"
+            min={BOUNDS.mortgageYears[0]}
+            max={BOUNDS.mortgageYears[1]}
+            value={config.mortgageYears}
+            onChange={(mortgageYears) => onChange({ mortgageYears })}
+            hint="Quando o crédito acaba, a alínea g) deixa de existir e o PPR só volta a ter saída sem penalização aos 60 anos."
+          />
+          )}
+          {config.hasMortgage && (
+          <NumberField
             id="monthlyInstalment"
             label="Prestação mensal"
             suffix="€"
@@ -152,7 +175,30 @@ export function ConfigPanel({
             max={BOUNDS.monthlyInstalment[1]}
             value={config.monthlyInstalment}
             onChange={(monthlyInstalment) => onChange({ monthlyInstalment })}
-            hint="Limita o resgate anual do PPR a 12 prestações, porque a lei só permite pagar prestações à medida que se vencem. Como o imposto é retido no resgate, é preciso resgatar um pouco mais do que a prestação para a cobrir."
+            hint={
+              coverage === null ? (
+                'Limita o resgate anual do PPR a 12 prestações, porque a lei só permite pagar prestações à medida que se vencem.'
+              ) : (
+                <>
+                  <span className="block">
+                    Nos anos com crédito, o {config.pprName} cobre em média{' '}
+                    <strong>{formatEur(coverage.avgPerYear)}</strong> dos{' '}
+                    {formatEur(coverage.annualDue)} de prestações —{' '}
+                    <strong>{formatPct(coverage.share)}</strong>. O resto sai do
+                    salário.
+                  </span>
+                  {coverage.share < 0.95 && (
+                    <span className="mt-1 block">
+                      Subir a prestação já não aumenta o benefício: o{' '}
+                      {config.pprName} só pode entregar o que tem, e recebe
+                      apenas {formatEur(coverage.contributedPerYear)} por ano.
+                      Para aproveitar uma prestação maior teria de aumentar a
+                      entrega anual.
+                    </span>
+                  )}
+                </>
+              )
+            }
           />
           )}
         </div>

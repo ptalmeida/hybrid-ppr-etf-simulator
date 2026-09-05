@@ -55,12 +55,20 @@ function balanceOf(tranches: Tranche[], product: 'etf' | 'ppr'): number {
  * redeemable. Computed from the actual schedule rather than assumed, so the
  * rule stays correct if contributions ever stop being uniform.
  */
-function firstHalfShare(entregas: { year: number; amount: number }[]): number {
+export function firstHalfShare(
+  entregas: { year: number; amount: number }[],
+  redemptionYear: number,
+): number {
   if (entregas.length === 0) return 0;
   const total = entregas.reduce((s, e) => s + e.amount, 0);
   if (total <= 0) return 0;
-  const lastYear = Math.max(...entregas.map((e) => e.year));
-  const midpoint = lastYear / 2;
+
+  // "Vigência do contrato" runs from the first entrega to the moment of
+  // reimbursement — NOT to the last contribution. Measuring it to the last
+  // entrega understates the contract's length and shifts the midpoint early.
+  const firstYear = Math.min(...entregas.map((e) => e.year));
+  const midpoint = (firstYear + redemptionYear) / 2;
+
   const inFirstHalf = entregas
     .filter((e) => e.year <= midpoint)
     .reduce((s, e) => s + e.amount, 0);
@@ -100,16 +108,42 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
   const pprNetRate = cfg.pprReturn - cfg.pprFee - cfg.pprTrackingError;
   const annualInstalments = cfg.monthlyInstalment * 12;
 
+  // Last year the mortgage is still running. Instalments only fall due inside
+  // this window, so alínea g) is only available while it lasts.
+  const mortgageEndYear = cfg.hasMortgage
+    ? cfg.mortgageStartYear + cfg.mortgageYears - 1
+    : null;
+
   /**
    * Whether the PPR can be cashed out at the end under art. 4.º conditions.
    *
-   * With a mortgage, alínea g) applies. Without one, the only condition this
-   * simulator can check is age: art. 4.º/1 e) allows redemption from 60. A
-   * participant who is still short of 60 at the end of the horizon would be
-   * redeeming OUTSIDE legal conditions, which is the expensive case.
+   * Alínea g) only works while there are instalments left to pay. Once the
+   * mortgage is settled that door closes, and the only remaining condition
+   * this simulator can check is age: art. 4.º/1 e) allows redemption from 60.
+   *
+   * So a mortgage that finishes before the participant turns 60 leaves the
+   * balance stranded — redeemable only outside legal conditions, at 21.5% /
+   * 17.2% / 8.6% plus the benefit clawback.
    */
   const ageAtEnd = cfg.currentAge + cfg.years - 1;
-  const legalExit = cfg.hasMortgage || ageAtEnd >= PPR_LEGAL_EXIT_AGE;
+  const mortgageStillRunningAtEnd =
+    mortgageEndYear !== null && mortgageEndYear >= cfg.years;
+  const legalExit =
+    ageAtEnd >= PPR_LEGAL_EXIT_AGE || mortgageStillRunningAtEnd;
+
+  /**
+   * True when the mortgage ends inside the horizon and the participant is
+   * still under 60 then: every euro contributed to the PPR after that point
+   * has no cheap way out. This is the warning the UI must surface.
+   */
+  const ageAtMortgageEnd =
+    mortgageEndYear === null ? null : cfg.currentAge + mortgageEndYear - 1;
+  const pprAfterMortgageEnds =
+    policy.primary === 'ppr' &&
+    mortgageEndYear !== null &&
+    mortgageEndYear < cfg.years &&
+    ageAtMortgageEnd !== null &&
+    ageAtMortgageEnd < PPR_LEGAL_EXIT_AGE;
 
   let tranches: Tranche[] = [];
   const entregas: { year: number; amount: number }[] = [];
@@ -201,11 +235,13 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       policy.primary === 'ppr' &&
       cfg.hasMortgage &&
       year >= cfg.mortgageStartYear &&
+      mortgageEndYear !== null &&
+      year <= mortgageEndYear &&
       entregas.length > 0
     ) {
       const result = redeemPprFifo(tranches, year, annualInstalments, {
         use35Rule: cfg.use35Rule,
-        firstHalfShare: firstHalfShare(entregas),
+        firstHalfShare: firstHalfShare(entregas, year),
         // the plan's own first entrega, from the full history. Redeeming does
         // not rejuvenate the contract, so this must not come from what is left.
         firstEntregaYear: entregas[0].year,
@@ -271,9 +307,15 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
   // Mortgage instalments falling due inside the horizon. Identical for every
   // scenario, which is what makes the comparison fair: the household owes the
   // same mortgage whichever way it invests.
-  const mortgageDueTotal = cfg.hasMortgage
-    ? annualInstalments * Math.max(0, cfg.years - cfg.mortgageStartYear + 1)
-    : 0;
+  // instalments falling due inside BOTH the mortgage window and the horizon
+  const mortgageYearsInHorizon =
+    mortgageEndYear === null
+      ? 0
+      : Math.max(
+          0,
+          Math.min(cfg.years, mortgageEndYear) - cfg.mortgageStartYear + 1,
+        );
+  const mortgageDueTotal = annualInstalments * mortgageYearsInHorizon;
   const mortgagePaidFromSalary = Math.max(0, mortgageDueTotal - mortgagePaid);
 
   // What actually leaves the household's pocket: the contributions, the
@@ -304,6 +346,8 @@ function runScenario(policy: Policy, cfg: SimConfig): ScenarioResult {
       freedSalaryReinvested: reinvestedFreedSalary,
       totalOutOfPocket,
       penalisedExit,
+      mortgageEndYear,
+      pprAfterMortgageEnds,
       benefitClawback,
       netValue: final.net - benefitClawback,
       netWithBenefits:
