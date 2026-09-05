@@ -49,35 +49,60 @@ describe('buildWaterfall', () => {
     });
   }
 
-  it('never adds back value that was reinvested', () => {
-    // defaults reinvest both channels, so neither may appear as a step
+  it('shows the mortgage exactly once, however the surplus was used', () => {
+    // reinvested and consumed are the same euros in different roles, so the
+    // step must be identical either way — counting both would double it
+    for (const reinvestRedemption of [true, false]) {
+      const hybrid = simulate(cfg({ reinvestRedemption })).scenarios.find(
+        (s) => s.id === 'hybrid',
+      )!;
+      const steps = buildWaterfall(hybrid).filter(
+        (s) => s.name === 'Prestações pagas pelo PPR',
+      );
+      expect(steps).toHaveLength(1);
+      expect(steps[0].amount).toBeCloseTo(hybrid.final.mortgagePaidTotal, 6);
+    }
+  });
+
+  it('shows the mortgage even when everything is reinvested', () => {
+    // the old chart hid it entirely in this case, which made it useless
     const hybrid = simulate(cfg()).scenarios.find((s) => s.id === 'hybrid')!;
-    expect(hybrid.final.mortgagePaidTotal).toBeGreaterThan(0);
-    expect(hybrid.final.irsBenefitTotal).toBeGreaterThan(0);
-
-    const names = buildWaterfall(hybrid).map((s) => s.name);
-    expect(names).not.toContain('Prestações pagas');
-    expect(names).not.toContain('Benefício IRS');
+    expect(hybrid.final.freedSalaryReinvested).toBeGreaterThan(0);
+    expect(buildWaterfall(hybrid).map((s) => s.name)).toContain(
+      'Prestações pagas pelo PPR',
+    );
   });
 
-  it('does add back value that was consumed', () => {
-    const hybrid = simulate(
-      cfg({ benefitDestination: 'consumed', reinvestRedemption: false }),
-    ).scenarios.find((s) => s.id === 'hybrid')!;
-    const names = buildWaterfall(hybrid).map((s) => s.name);
-    expect(names).toContain('Prestações pagas');
-    expect(names).toContain('Benefício IRS');
+  it('gives the ETF scenario no mortgage or benefit step', () => {
+    const etf = simulate(cfg()).scenarios.find((s) => s.id === 'etf')!;
+    const names = buildWaterfall(etf).map((s) => s.name);
+    expect(names).not.toContain('Prestações pagas pelo PPR');
+    expect(names).not.toContain('Benefício de IRS');
+    expect(names).toContain('Rendimento dos investimentos');
   });
 
-  it('never subtracts the tax withheld on redemptions', () => {
-    // that money left the plan years earlier and is not inside grossValue
+  it('charges the redemption tax against the inflows', () => {
+    // it is a real cost; it just could not be subtracted from grossValue,
+    // which never contained it
     const hybrid = simulate(cfg()).scenarios.find((s) => s.id === 'hybrid')!;
     expect(hybrid.final.pprTaxDuringRedemptions).toBeGreaterThan(0);
-    const steps = buildWaterfall(hybrid);
-    const pprTaxStep = steps.find((s) => s.name === 'Imposto PPR');
-    if (pprTaxStep) {
-      expect(pprTaxStep.amount).toBeCloseTo(-hybrid.final.pprTax, 6);
-    }
+    const step = buildWaterfall(hybrid).find((s) => s.name === 'Imposto PPR')!;
+    expect(step.amount).toBeCloseTo(
+      -(hybrid.final.pprTax + hybrid.final.pprTaxDuringRedemptions),
+      6,
+    );
+  });
+
+  it('reports growth as the market return, not a plug that hides tax', () => {
+    const etf = simulate(cfg()).scenarios.find((s) => s.id === 'etf')!;
+    const growth = buildWaterfall(etf).find(
+      (s) => s.name === 'Rendimento dos investimentos',
+    )!;
+    // with no mortgage or benefit, growth is simply gross minus what went in
+    expect(growth.amount).toBeCloseTo(
+      etf.final.grossValue - etf.final.totalContributed,
+      6,
+    );
   });
 
   it('shows the clawback only on a penalised exit', () => {
@@ -98,7 +123,7 @@ describe('buildWaterfall', () => {
     const steps = buildWaterfall(
       simulate(cfg({ annualInvestment: 0 })).scenarios[0],
     );
-    expect(steps[0].name).toBe('Carteira bruta');
+    expect(steps[0].name).toBe('Entregas do seu bolso');
     expect(steps.at(-1)!.isTotal).toBe(true);
   });
 });

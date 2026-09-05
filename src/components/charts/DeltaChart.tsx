@@ -13,6 +13,7 @@ import {
   currencyFormatter,
   gridProps,
   tooltipStyle,
+  withOrigin,
 } from './chartTheme';
 import { formatCompactEur } from '../../lib/format';
 import type { ScenarioResult } from '../../lib/types';
@@ -26,10 +27,12 @@ export function DeltaChart({
   hybrid: ScenarioResult;
   breakEvenYear: number | null;
 }) {
-  const data = hybrid.rows.map((r, i) => ({
+  const rows = hybrid.rows.map((r, i) => ({
     year: r.year,
     delta: r.netWithBenefits - etf.rows[i].netWithBenefits,
   }));
+  // the difference is zero before anything is invested, so the origin is real
+  const data = withOrigin(rows, ['delta'], false);
 
   return (
     <ResponsiveContainer width="100%" height={260}>
@@ -41,12 +44,18 @@ export function DeltaChart({
           </linearGradient>
         </defs>
         <CartesianGrid {...gridProps} />
-        <XAxis dataKey="year" {...AXIS} />
+        <XAxis
+          dataKey="year"
+          type="number"
+          domain={[0, rows.length]}
+          allowDecimals={false}
+          {...AXIS}
+        />
         <YAxis {...AXIS} tickFormatter={formatCompactEur} width={70} />
         <Tooltip
           {...tooltipStyle}
           formatter={currencyFormatter('Diferença')}
-          labelFormatter={(y) => `Ano ${y}`}
+          labelFormatter={(y) => (y === 0 ? 'Hoje' : `Ano ${y}`)}
         />
         <ReferenceLine y={0} stroke="#94a3b8" />
         {breakEvenYear !== null && (

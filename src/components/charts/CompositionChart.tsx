@@ -13,6 +13,7 @@ import {
   currencyFormatter,
   gridProps,
   tooltipStyle,
+  withOrigin,
 } from './chartTheme';
 import { formatCompactEur } from '../../lib/format';
 import type { ScenarioResult, SimConfig } from '../../lib/types';
@@ -24,23 +25,31 @@ export function CompositionChart({
   hybrid: ScenarioResult;
   config: SimConfig;
 }) {
-  const data = hybrid.rows.map((r) => ({
+  const rows = hybrid.rows.map((r) => ({
     year: r.year,
     ppr: r.pprBalance,
     etf: r.etfBalance,
     mortgage: r.mortgagePaid,
   }));
+  // stacked areas are always linear, so the origin can carry real zeros
+  const data = withOrigin(rows, ['ppr', 'etf', 'mortgage'], false);
 
   return (
     <ResponsiveContainer width="100%" height={300}>
       <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
         <CartesianGrid {...gridProps} />
-        <XAxis dataKey="year" {...AXIS} />
+        <XAxis
+          dataKey="year"
+          type="number"
+          domain={[0, rows.length]}
+          allowDecimals={false}
+          {...AXIS}
+        />
         <YAxis {...AXIS} tickFormatter={formatCompactEur} width={70} />
         <Tooltip
           {...tooltipStyle}
           formatter={currencyFormatter('Valor')}
-          labelFormatter={(y) => `Ano ${y}`}
+          labelFormatter={(y) => (y === 0 ? 'Hoje' : `Ano ${y}`)}
         />
         <Legend wrapperStyle={{ fontSize: '0.8125rem' }} />
         <Area

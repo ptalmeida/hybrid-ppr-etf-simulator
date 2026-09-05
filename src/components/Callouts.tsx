@@ -1,4 +1,5 @@
 import { AlertTriangle, Info } from 'lucide-react';
+import { formatEur } from '../lib/format';
 
 export function RiskEquivalenceWarning() {
   return (
@@ -64,12 +65,18 @@ export function WhatThisCannotPrice() {
  */
 export function StrandedPprWarning({
   pprName,
+  etfName,
   mortgageEndYear,
   ageAtMortgageEnd,
+  strandedValue,
+  clawback,
 }: {
   pprName: string;
+  etfName: string;
   mortgageEndYear: number;
   ageAtMortgageEnd: number;
+  strandedValue: number;
+  clawback: number;
 }) {
   return (
     <div className="flex gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/40">
@@ -79,22 +86,48 @@ export function StrandedPprWarning({
       />
       <div className="space-y-2 text-sm leading-relaxed text-amber-900 dark:text-amber-200">
         <p className="font-semibold">
+          Ficam {formatEur(strandedValue)} presos no {pprName}.
+        </p>
+        <p>
           O crédito acaba no ano {mortgageEndYear}, quando tiver{' '}
-          {ageAtMortgageEnd} anos — e a porta de saída fecha-se.
+          {ageAtMortgageEnd} anos. A alínea g) só permite resgatar enquanto
+          houver prestações por pagar, e os 60 anos da alínea e) ainda vão
+          longe, por isso este saldo sai fora das condições legais: 21,5% /
+          17,2% / 8,6% conforme o prazo, mais {formatEur(clawback)} de
+          benefícios de IRS devolvidos e majorados em 10% por cada ano.
         </p>
         <p>
-          A alínea g) só permite resgatar o {pprName} enquanto houver prestações
-          por pagar. Terminado o crédito, e ainda sem 60 anos, o saldo que
-          continuar no {pprName} fica sem saída barata: resgatá-lo antes disso
-          custa 21,5% / 17,2% / 8,6% conforme o prazo, mais a devolução dos
-          benefícios de IRS majorados em 10% por cada ano.
-        </p>
-        <p>
-          É a resposta à pergunta óbvia: continuar a reforçar o {pprName} depois
-          de o crédito acabar não tem como compensar, a não ser que conte mesmo
-          deixar o dinheiro lá até aos 60.
+          Em «quando o crédito acabar», passar as entregas para o {etfName} — ou
+          simplesmente parar — evita isto por completo.
         </p>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The reassuring counterpart: the mortgage still ends before 60, but the
+ * contributions were redirected in time, so nothing is stuck.
+ */
+export function RedirectedNote({
+  pprName,
+  mortgageEndYear,
+  afterMortgage,
+}: {
+  pprName: string;
+  mortgageEndYear: number;
+  afterMortgage: 'etf' | 'stop';
+}) {
+  return (
+    <div className="flex gap-3 rounded-xl border border-slate-200 bg-slate-100 p-4 dark:border-slate-800 dark:bg-slate-900">
+      <Info size={18} className="mt-0.5 shrink-0 text-slate-500" />
+      <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+        O crédito acaba no ano {mortgageEndYear} e, a partir daí, o {pprName}{' '}
+        deixaria de ter saída sem penalização antes dos 60 anos.{' '}
+        {afterMortgage === 'etf'
+          ? 'Como escolheu passar as entregas para o ETF nessa altura, não fica nada preso.'
+          : 'Como escolheu parar de investir nessa altura, não fica nada preso.'}
+      </p>
     </div>
   );
 }

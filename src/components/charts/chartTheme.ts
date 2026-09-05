@@ -27,6 +27,26 @@ export function currencyFormatter(fallbackName: string) {
   ];
 }
 
+/**
+ * Prepend the "today" point so the x-axis starts at year 0.
+ *
+ * Year 1 is the first year of *growth*, so starting the axis there makes a
+ * 36-year simulation look like 35 intervals and invites the reader to distrust
+ * the numbers. Year 0 is the starting state: nothing invested, nothing earned.
+ *
+ * On a log axis zero is undefined, so the origin carries `null` instead —
+ * Recharts simply skips it, and the axis still opens at 0.
+ */
+export function withOrigin<T extends Record<string, number | null>>(
+  rows: T[],
+  keys: string[],
+  logScale: boolean,
+): (T | Record<string, number | null>)[] {
+  const origin: Record<string, number | null> = { year: 0 };
+  for (const k of keys) origin[k] = logScale ? null : 0;
+  return [origin, ...rows];
+}
+
 export interface AxisScale {
   scale: 'log' | 'linear';
   domain?: [number, number];

@@ -12,6 +12,7 @@ import {
   Disclaimer,
   LegalityNote,
   RiskEquivalenceWarning,
+  RedirectedNote,
   StrandedPprWarning,
   WhatThisCannotPrice,
 } from './components/Callouts';
@@ -104,16 +105,31 @@ export default function App() {
         <main className="order-1 min-w-0 space-y-6 lg:order-2">
           <SummaryCards scenarios={output.scenarios} />
 
-          {hybrid.final.pprAfterMortgageEnds &&
-            hybrid.final.mortgageEndYear !== null && (
+          {/* Warn only when money is actually stuck. The mortgage ending
+              before 60 is just a fact; it is only a problem if a balance is
+              left behind, which redirecting the contributions prevents. */}
+          {hybrid.final.mortgageEndYear !== null &&
+            hybrid.final.pprAfterMortgageEnds &&
+            (hybrid.final.penalisedExit ? (
               <StrandedPprWarning
                 pprName={config.pprName}
+                etfName={config.etfName}
                 mortgageEndYear={hybrid.final.mortgageEndYear}
                 ageAtMortgageEnd={
                   config.currentAge + hybrid.final.mortgageEndYear - 1
                 }
+                strandedValue={hybrid.rows.at(-1)?.pprBalance ?? 0}
+                clawback={hybrid.final.benefitClawback}
               />
-            )}
+            ) : (
+              config.afterMortgage !== 'ppr' && (
+                <RedirectedNote
+                  pprName={config.pprName}
+                  mortgageEndYear={hybrid.final.mortgageEndYear}
+                  afterMortgage={config.afterMortgage}
+                />
+              )
+            ))}
 
           {config.hasMortgage && (
             <p className="rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm leading-relaxed text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
@@ -139,7 +155,9 @@ export default function App() {
           >
             <WealthChart
               scenarios={output.scenarios}
-              mortgageStartYear={config.mortgageStartYear}
+              mortgageStartYear={config.hasMortgage ? config.mortgageStartYear : null}
+              mortgageEndYear={hybrid.final.mortgageEndYear}
+              yearAt60={60 - config.currentAge + 1}
               logScale={config.logScale}
             />
             {config.logScale && (
@@ -175,7 +193,7 @@ export default function App() {
 
           <Card
             title="Impacto fiscal"
-            subtitle="Da carteira bruta ao valor final, passo a passo."
+            subtitle="De onde vem o valor final: o que entrou, o que o mercado acrescentou, e o que o imposto levou."
           >
             <div className="grid gap-8 xl:grid-cols-2">
               {[etf, hybrid].map((s) => (
