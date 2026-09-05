@@ -32,6 +32,7 @@ const KEYS: Record<keyof SimConfig, string> = {
   use35Rule: 'r35',
   irsBandsEnabled: 'bands',
   irsBenefitCap: 'cap',
+  logScale: 'log',
   etfName: 'etfN',
   pprName: 'pprN',
 };
@@ -138,6 +139,7 @@ export function parseConfig(query: string): SimConfig {
     use35Rule: bool('use35Rule'),
     irsBandsEnabled: bool('irsBandsEnabled'),
     irsBenefitCap: num('irsBenefitCap'),
+    logScale: bool('logScale'),
     etfName: cleanName(read('etfName') ?? '', DEFAULT_CONFIG.etfName),
     pprName: cleanName(read('pprName') ?? '', DEFAULT_CONFIG.pprName),
   };

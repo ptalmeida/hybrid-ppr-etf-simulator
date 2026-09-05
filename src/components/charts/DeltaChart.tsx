@@ -62,6 +62,7 @@ export function DeltaChart({
           />
         )}
         <Area
+          isAnimationActive={false}
           type="monotone"
           dataKey="delta"
           stroke="#10b981"

@@ -26,6 +26,7 @@ export interface SimConfig {
   use35Rule: boolean;
   irsBandsEnabled: boolean;
   irsBenefitCap: number;
+  logScale: boolean;
   etfName: string;
   pprName: string;
 }

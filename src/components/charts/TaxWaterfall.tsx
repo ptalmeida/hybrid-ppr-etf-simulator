@@ -85,7 +85,7 @@ export function TaxWaterfall({ scenario }: { scenario: ScenarioResult }) {
             ];
           }}
         />
-        <Bar dataKey="range" radius={[3, 3, 3, 3]}>
+        <Bar dataKey="range" radius={[3, 3, 3, 3]} isAnimationActive={false}>
           {data.map((d, i) => (
             <Cell
               key={i}

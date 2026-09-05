@@ -14,6 +14,7 @@ import {
   SERIES_COLORS,
   currencyFormatter,
   gridProps,
+  logAxis,
   tooltipStyle,
 } from './chartTheme';
 import { formatCompactEur } from '../../lib/format';
@@ -22,9 +23,11 @@ import type { ScenarioResult } from '../../lib/types';
 export function WealthChart({
   scenarios,
   mortgageStartYear,
+  logScale,
 }: {
   scenarios: ScenarioResult[];
   mortgageStartYear: number;
+  logScale: boolean;
 }) {
   const data = scenarios[0].rows.map((row, i) => {
     const point: Record<string, number> = { year: row.year };
@@ -32,6 +35,11 @@ export function WealthChart({
     for (const s of scenarios) point[s.id] = s.rows[i].netWithBenefits;
     return point;
   });
+
+  const yAxis = logAxis(
+    scenarios.flatMap((s) => s.rows.map((r) => r.netWithBenefits)),
+    logScale,
+  );
 
   const showMortgageLine =
     mortgageStartYear >= 1 && mortgageStartYear <= data.length;
@@ -50,7 +58,15 @@ export function WealthChart({
             fontSize: 12,
           }}
         />
-        <YAxis {...AXIS} tickFormatter={formatCompactEur} width={70} />
+        <YAxis
+          {...AXIS}
+          tickFormatter={formatCompactEur}
+          width={70}
+          scale={yAxis.scale}
+          domain={yAxis.domain}
+          ticks={yAxis.ticks}
+          allowDataOverflow={yAxis.applied}
+        />
         <Tooltip
           {...tooltipStyle}
           formatter={currencyFormatter('Valor')}
@@ -71,6 +87,7 @@ export function WealthChart({
         )}
         {scenarios.map((s) => (
           <Line
+            isAnimationActive={false}
             key={s.id}
             type="monotone"
             dataKey={s.id}

@@ -44,6 +44,7 @@ export function CompositionChart({
         />
         <Legend wrapperStyle={{ fontSize: '0.8125rem' }} />
         <Area
+          isAnimationActive={false}
           type="monotone"
           dataKey="ppr"
           stackId="1"
@@ -53,6 +54,7 @@ export function CompositionChart({
           fillOpacity={0.55}
         />
         <Area
+          isAnimationActive={false}
           type="monotone"
           dataKey="etf"
           stackId="1"
@@ -62,6 +64,7 @@ export function CompositionChart({
           fillOpacity={0.55}
         />
         <Area
+          isAnimationActive={false}
           type="monotone"
           dataKey="mortgage"
           stackId="1"

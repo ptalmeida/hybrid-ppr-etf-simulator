@@ -7,6 +7,7 @@ import { ConfigPanel } from './components/ConfigPanel';
 import { SummaryCards } from './components/SummaryCards';
 import { Explanation } from './components/Explanation';
 import { Card } from './components/Card';
+import { ScaleToggle } from './components/ScaleToggle';
 import {
   Disclaimer,
   RiskEquivalenceWarning,
@@ -83,11 +84,27 @@ export default function App() {
           <Card
             title="Evolução do património"
             subtitle="Valor total criado por cada estratégia — carteira líquida de imposto, mais as prestações pagas e os benefícios recebidos que não foram reinvestidos."
+            action={
+              <ScaleToggle
+                value={config.logScale}
+                onChange={(logScale) => update({ logScale })}
+              />
+            }
           >
             <WealthChart
               scenarios={output.scenarios}
               mortgageStartYear={config.mortgageStartYear}
+              logScale={config.logScale}
             />
+            {config.logScale && (
+              <p className="mt-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                Numa escala logarítmica, distâncias iguais são variações
+                percentuais iguais. Os primeiros anos deixam de ficar esmagados
+                contra a base e passa a ver-se a <em>taxa</em> de crescimento:
+                linhas paralelas crescem ao mesmo ritmo, independentemente da
+                distância entre elas.
+              </p>
+            )}
           </Card>
 
           <div className="grid gap-6 xl:grid-cols-2">

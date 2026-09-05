@@ -13,7 +13,7 @@ export const DEFAULT_CONFIG: SimConfig = {
   pprTrackingError: 0,
   etfAnnualCost: 0,
   mortgageStartYear: 3,
-  monthlyInstalment: 500,
+  monthlyInstalment: 1000,
   benefitDestination: 'etf',
   reinvestRedemption: true,
   etfTaxMode: 'ladder',
@@ -21,6 +21,7 @@ export const DEFAULT_CONFIG: SimConfig = {
   use35Rule: true,
   irsBandsEnabled: true,
   irsBenefitCap: 400,
+  logScale: false,
   etfName: 'ETF S&P 500',
   pprName: 'PPR',
 };
