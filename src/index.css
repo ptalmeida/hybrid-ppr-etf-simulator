@@ -1,7 +1,32 @@
 @import "tailwindcss";
 
+/*
+ * Design notes
+ *
+ * The reference points are financial data tools — FT, Koyfin, justETF,
+ * Morningstar — rather than generic dashboard templates. What that means in
+ * practice:
+ *
+ *  - Numbers are the content. They get size, weight and tabular figures;
+ *    labels shrink to small uppercase and go grey.
+ *  - Hairlines, not shadows. Separation comes from 1px rules and a faint
+ *    surface tint, so the page reads as one dense sheet rather than a pile
+ *    of floating cards.
+ *  - One accent colour, used semantically. Emerald marks the hybrid strategy
+ *    and gains; rose marks losses. Everything else is neutral, so colour
+ *    always means something.
+ *  - Tight vertical rhythm. Whitespace is for grouping, not for decoration.
+ */
+
 @theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* one accent, one warning, one loss — nothing else carries colour */
+  --color-brand-50: oklch(0.98 0.02 165);
+  --color-brand-500: oklch(0.68 0.14 165);
+  --color-brand-600: oklch(0.6 0.13 165);
+  --color-brand-700: oklch(0.52 0.11 165);
 }
 
 html {
@@ -10,8 +35,45 @@ html {
 
 body {
   @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+  font-feature-settings: "cv05", "ss01";
 }
 
+/* Figures must align in columns; without this, tables jitter as values change */
 .tnum {
   font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* The small grey caps that label a number. Used everywhere, so it is a class. */
+.label {
+  @apply text-[0.6875rem] font-medium tracking-[0.08em] text-slate-500 uppercase dark:text-slate-400;
+}
+
+/* A figure that should read as data rather than prose. */
+.figure {
+  @apply tnum font-semibold text-slate-900 dark:text-slate-50;
+}
+
+.surface {
+  @apply border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900;
+}
+
+/* Inputs: quiet until focused, so a long form does not shout. */
+.control {
+  @apply tnum w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm
+    text-slate-900 outline-none transition-colors
+    focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20
+    dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100;
+}
+
+/* Rows in the comparison table highlight on hover so the eye can track across */
+.row-hover {
+  @apply transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

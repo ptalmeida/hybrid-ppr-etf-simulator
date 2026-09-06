@@ -16,16 +16,14 @@ export function Card({
 }) {
   return (
     <section
-      className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 ${className}`}
+      className={`surface rounded-lg p-4 ${className}`}
     >
       {title && (
-        <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <header className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold tracking-wide text-slate-900 uppercase dark:text-slate-100">
-              {title}
-            </h2>
+            <h2 className="label">{title}</h2>
             {subtitle && (
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              <p className="mt-1 text-[0.8125rem] leading-snug text-slate-500 dark:text-slate-400">
                 {subtitle}
               </p>
             )}

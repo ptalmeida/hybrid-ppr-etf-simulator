@@ -4,7 +4,11 @@ import { useUrlConfig } from './hooks/useUrlConfig';
 import { simulate } from './lib/engine';
 import { buildExplanation } from './lib/explain';
 import { ConfigPanel } from './components/ConfigPanel';
-import { SummaryCards } from './components/SummaryCards';
+import { ComparisonTable } from './components/ComparisonTable';
+import {
+  MobileConfigBar,
+  MobileConfigSheet,
+} from './components/MobileConfigDrawer';
 import { Explanation } from './components/Explanation';
 import { Card } from './components/Card';
 import { ScaleToggle } from './components/ScaleToggle';
@@ -26,6 +30,7 @@ import { DeltaChart } from './components/charts/DeltaChart';
 export default function App() {
   const { config, update, reset } = useUrlConfig();
   const [copied, setCopied] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const output = useMemo(() => simulate(config), [config]);
   const explanation = useMemo(
@@ -61,51 +66,60 @@ export default function App() {
     }
   };
 
+  const panel = (
+    <ConfigPanel
+      config={config}
+      onChange={update}
+      onReset={reset}
+      onCopyLink={copyLink}
+      copied={copied}
+      coverage={coverage}
+      lastUsefulPprYear={output.lastUsefulPprYear}
+      wastedContributions={hybrid.final.contributionsWithoutBenefit}
+    />
+  );
+
   return (
-    <div className="mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-8 max-w-3xl">
-        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-          <LineChart size={20} />
-          <span className="text-sm font-semibold tracking-wide uppercase">
-            Simulador
-          </span>
+    <div className="pb-20 lg:pb-0">
+      <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <div className="mx-auto max-w-[1500px] px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex items-baseline gap-2.5">
+            <LineChart
+              size={16}
+              className="shrink-0 translate-y-0.5 text-brand-600 dark:text-brand-500"
+            />
+            <h1 className="text-base font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+              PPR + crédito habitação{' '}
+              <span className="font-normal text-slate-400">vs.</span> ETF
+            </h1>
+            <span className="label hidden sm:inline">
+              simulador · Portugal · 2026
+            </span>
+          </div>
+          <p className="mt-1.5 max-w-3xl text-[0.8125rem] leading-snug text-slate-500 dark:text-slate-400">
+            Entregar ao PPR para captar o benefício de IRS, resgatá-lo a 8% para
+            pagar prestações do crédito habitação e reinvestir a folga no ETF —
+            comparado com investir tudo diretamente no ETF.{' '}
+            <span className="text-slate-400 dark:text-slate-500">
+              A híbrida nem sempre ganha: comissões altas, desvio face ao índice,
+              não reinvestir a folga ou não chegar a ter crédito chegam para a
+              pôr atrás.
+            </span>
+          </p>
         </div>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl dark:text-slate-50">
-          PPR + crédito habitação vs. ETF
-        </h1>
-        <p className="mt-3 text-base leading-relaxed text-slate-600 dark:text-slate-400">
-          Compara duas estratégias de longo prazo para quem vive em Portugal e
-          conta ter crédito habitação: investir tudo diretamente num ETF, ou a
-          estratégia híbrida — entregar ao PPR para captar o benefício de IRS,
-          resgatá-lo a 8% para pagar as prestações, e reinvestir no ETF tudo o
-          que isso liberta.
-        </p>
-        <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-          A híbrida nem sempre ganha. Uma comissão de gestão alta, um desvio face
-          ao índice, não reinvestir a folga, ou não chegar a ter crédito
-          habitação chegam para a pôr atrás. Mexa nos parâmetros e veja onde a
-          vantagem desaparece.
-        </p>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
-        {/* results first on mobile: a visitor should see the comparison
-            before a long form. Side by side from lg up. */}
-        <aside className="order-2 lg:order-1 lg:sticky lg:top-6 lg:self-start">
-          <ConfigPanel
-            config={config}
-            onChange={update}
-            onReset={reset}
-            onCopyLink={copyLink}
-            copied={copied}
-            coverage={coverage}
-            lastUsefulPprYear={output.lastUsefulPprYear}
-            wastedContributions={hybrid.final.contributionsWithoutBenefit}
-          />
+      <div className="mx-auto max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8">
+
+      <div className="grid gap-5 lg:grid-cols-[330px_minmax(0,1fr)]">
+        {/* On a phone the panel lives in a sheet instead, reachable from the
+            sticky bar — see MobileConfigDrawer for why. */}
+        <aside className="hidden lg:sticky lg:top-5 lg:block lg:self-start">
+          {panel}
         </aside>
 
-        <main className="order-1 min-w-0 space-y-6 lg:order-2">
-          <SummaryCards scenarios={output.scenarios} />
+        <main className="min-w-0 space-y-5">
+          <ComparisonTable scenarios={output.scenarios} />
 
           {/* Warn only when money is actually stuck. The mortgage ending
               before 60 is just a fact; it is only a problem if a balance is
@@ -140,7 +154,7 @@ export default function App() {
               salário; na estratégia híbrida parte dela é paga pelo{' '}
               {config.pprName}
               {config.reinvestRedemption
-                ? ', e essa folga do salário é investida no ETF. É por isso que a linha «Total» de «sai do seu bolso» é igual nos dois cartões: a comparação é justa.'
+                ? ', e essa folga do salário é investida no ETF. É por isso que a linha «Total» de «sai do seu bolso» é igual nas duas colunas: a comparação é justa.'
                 : ', e essa folga do salário é gasta. Repare que o total que sai do bolso passa a ser menor na estratégia híbrida — está a comparar cenários que lhe custam valores diferentes.'}
             </p>
           )}
@@ -233,7 +247,19 @@ export default function App() {
           <WhatThisCannotPrice />
           <Disclaimer />
         </main>
+        </div>
       </div>
+
+      <MobileConfigBar
+        delta={hybrid.final.netWithBenefits - etf.final.netWithBenefits}
+        onOpen={() => setSettingsOpen(true)}
+      />
+      <MobileConfigSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      >
+        {panel}
+      </MobileConfigSheet>
     </div>
   );
 }

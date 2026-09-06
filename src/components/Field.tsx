@@ -6,11 +6,7 @@ interface BaseProps {
   id: string;
 }
 
-const inputClass =
-  'tnum w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm ' +
-  'text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 ' +
-  'focus:ring-emerald-500/30 dark:border-slate-700 dark:bg-slate-950 ' +
-  'dark:text-slate-100';
+const inputClass = 'control';
 
 function Wrapper({
   label,
@@ -19,16 +15,16 @@ function Wrapper({
   children,
 }: BaseProps & { children: ReactNode }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       <label
         htmlFor={id}
-        className="block text-sm font-medium text-slate-700 dark:text-slate-300"
+        className="block text-[0.8125rem] font-medium text-slate-700 dark:text-slate-300"
       >
         {label}
       </label>
       {children}
       {hint && (
-        <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+        <p className="text-xs leading-snug text-slate-500 dark:text-slate-400">
           {hint}
         </p>
       )}
@@ -71,7 +67,7 @@ export function NumberField({
           }}
         />
         {suffix && (
-          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">
+          <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-xs text-slate-400">
             {suffix}
           </span>
         )}
@@ -151,25 +147,25 @@ export function ToggleField({
         role="switch"
         aria-checked={value}
         onClick={() => onChange(!value)}
-        className={`mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors ${
-          value ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+        className={`mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors ${
+          value ? 'bg-brand-600' : 'bg-slate-300 dark:bg-slate-700'
         }`}
       >
         <span
-          className={`block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-            value ? 'translate-x-5' : 'translate-x-0.5'
+          className={`block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+            value ? 'translate-x-4' : 'translate-x-0.5'
           }`}
         />
       </button>
       <div>
         <label
           htmlFor={id}
-          className="block cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300"
+          className="block cursor-pointer text-[0.8125rem] font-medium text-slate-700 dark:text-slate-300"
         >
           {label}
         </label>
         {hint && (
-          <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400">
             {hint}
           </p>
         )}
