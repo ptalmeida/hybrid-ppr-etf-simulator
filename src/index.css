@@ -38,8 +38,13 @@ body {
   font-feature-settings: "cv05", "ss01";
 }
 
-/* Figures must align in columns; without this, tables jitter as values change */
-.tnum {
+/*
+ * Figures must align in columns; without this, tables jitter as values change.
+ * Declared with @utility rather than as a plain class so it can be used both
+ * as `class="tnum"` and inside `@apply` — a plain class silently works in dev
+ * and fails the production build.
+ */
+@utility tnum {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
