@@ -61,8 +61,9 @@ export function ConfigPanel({
             presets={ETF_PRESETS}
             selected={matchEtfPreset(config)}
             currentReturn={config.etfReturn}
+            returnBounds={BOUNDS.etfReturn as [number, number]}
             onSelect={(p) => onChange(applyEtfPreset(p))}
-            onUseHistory={(etfReturn) => onChange({ etfReturn })}
+            onReturnChange={(etfReturn) => onChange({ etfReturn })}
           />
           <PresetPicker
             id="pprPreset"
@@ -70,8 +71,9 @@ export function ConfigPanel({
             presets={PPR_PRESETS}
             selected={matchPprPreset(config)}
             currentReturn={config.pprReturn}
+            returnBounds={BOUNDS.pprReturn as [number, number]}
             onSelect={(p) => onChange(applyPprPreset(p))}
-            onUseHistory={(pprReturn) => onChange({ pprReturn })}
+            onReturnChange={(pprReturn) => onChange({ pprReturn })}
           />
 
           {(() => {
@@ -180,26 +182,6 @@ export function ConfigPanel({
             max={BOUNDS.years[1]}
             value={config.years}
             onChange={(years) => onChange({ years })}
-          />
-          <NumberField
-            id="etfReturn"
-            label={`Rendibilidade bruta — ${config.etfName}`}
-            suffix="%"
-            step={0.01}
-            min={BOUNDS.etfReturn[0]}
-            max={BOUNDS.etfReturn[1]}
-            value={config.etfReturn}
-            onChange={(etfReturn) => onChange({ etfReturn })}
-          />
-          <NumberField
-            id="pprReturn"
-            label={`Rendibilidade bruta — ${config.pprName}`}
-            suffix="%"
-            step={0.01}
-            min={BOUNDS.pprReturn[0]}
-            max={BOUNDS.pprReturn[1]}
-            value={config.pprReturn}
-            onChange={(pprReturn) => onChange({ pprReturn })}
           />
         </div>
       </Card>
